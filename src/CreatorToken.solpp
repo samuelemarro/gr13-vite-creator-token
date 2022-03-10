@@ -120,26 +120,25 @@ contract CreatorToken {
         return _mintCost(_tokenId, _amount);
     }
 
-    function _mint(address _tokenId, uint128 _amount) internal returns(uint256) {
-        uint256 computedMintCost = _mintCost(_tokenId, _amount);
-        require(msg.value >= computedMintCost, "CreatorToken: not enough Vite to mint");
-
+    function _mint(address _tokenId, uint128 _amount) internal {
         supplies[_tokenId] += _amount;
         balances[msg.sender][_tokenId] += _amount;
 
         emit TokenMinted(msg.sender, _tokenId, _amount);
-
-        return computedMintCost;
     }
 
     function mint(address _tokenId, uint128 _amount) external payable {
         require(exists(_tokenId), "CreatorToken: token does not exist");
         require(_amount > 0, "CreatorToken: _amount must be greater than zero");
-        
-        uint256 computedMintCost = _mint(_tokenId, _amount);
+
+        // Important: the revenue/cost should always be computed before executing the operation
+        uint256 computedMintCost = _mintCost(_tokenId, _amount);
+        require(msg.value >= computedMintCost, "CreatorToken: not enough Vite to mint");
+
+        _mint(_tokenId, _amount);
 
         if (msg.value > computedMintCost) {
-            // Minter overpaid (e.g. to avoid frontrunning), send back the difference
+            // Minter overpaid (e.g. to handle slippage), send back the difference
             uint256 refund = msg.value - computedMintCost;
             payable(msg.sender).transfer("tti_5649544520544f4b454e6e40", refund);
         }
@@ -159,15 +158,11 @@ contract CreatorToken {
         return _burnRevenue(_tokenId, _amount);
     }
 
-    function _burn(address _tokenId, uint128 _amount) internal returns(uint256) {
-        uint256 computedBurnRevenue = _burnRevenue(_tokenId, _amount);
-
+    function _burn(address _tokenId, uint128 _amount) internal {
         supplies[_tokenId] -= _amount;
         balances[msg.sender][_tokenId] -= _amount;
 
         emit TokenBurned(msg.sender, _tokenId, _amount);
-
-        return computedBurnRevenue;
     }
 
     function burn(address _tokenId, uint128 _amount) external {
@@ -176,7 +171,9 @@ contract CreatorToken {
         require(_amount <= _tradableSupply(_tokenId), "CreatorToken: _amount must be less than or equal to tradable supply");
         require(_balanceOf(msg.sender, _tokenId) >= _amount, "CreatorToken: not enough tokens to burn");
 
-        uint256 computedBurnRevenue = _burn(_tokenId, _amount);
+        // Important: the revenue/cost should always be computed before executing the operation
+        uint256 computedBurnRevenue = _burnRevenue(_tokenId, _amount);
+        _burn(_tokenId, _amount);
 
         payable(msg.sender).transfer("tti_5649544520544f4b454e6e40", computedBurnRevenue);
     }
@@ -268,15 +265,18 @@ contract CreatorToken {
         require(_amount <= _tradableSupply(_currentToken), "CreatorToken: _amount must be less than or equal to tradable supply");
         require(_balanceOf(msg.sender, _currentToken) >= _amount, "CreatorToken: not enough current tokens to swap");
 
-        uint256 computedBurnRevenue = _burn(_currentToken, _amount);
+        uint256 computedBurnRevenue = _burnRevenue(_currentToken, _amount);
+
         // Note: _inverseIntegral rounds down
         uint128 newTokenAmount = _inverseIntegral(_newToken, _totalSupply(_newToken), computedBurnRevenue);
         require(newTokenAmount <= _tradableSupply(_newToken), "CreatorToken: not enough tradable new tokens to swap");
 
-        uint256 computedMintCost = _mint(_newToken, newTokenAmount);
-
+        uint256 computedMintCost = _mintCost(_newToken, newTokenAmount);
         // Sanity check
         require(computedMintCost <= computedBurnRevenue, "CreatorToken: mint cost is greater than burn revenue");
+
+        _burn(_currentToken, _amount);
+        _mint(_newToken, newTokenAmount);       
 
         // _inverseIntegral rounds down, so we might have bought less than we sold. In that case, transfer the difference
         if (computedMintCost < computedBurnRevenue) {
