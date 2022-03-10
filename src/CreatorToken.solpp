@@ -117,6 +117,8 @@ contract CreatorToken {
 
         supplies[_tokenId] += _amount;
         balances[msg.sender][_tokenId] += _amount;
+
+        return computedMintCost;
     }
 
     function mint(address _tokenId, uint128 _amount) external payable {
