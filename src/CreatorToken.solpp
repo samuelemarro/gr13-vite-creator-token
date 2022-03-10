@@ -89,28 +89,27 @@ contract CreatorToken {
         balances[msg.sender][_tokenId] -= _amount;
         backingBalances[_tokenId] -= actualBurnRevenue;
 
-        payable(msg.sender).transfer("tti_5649544520544f4b454e6e40", actualBurnRevenue); // TODO: Fix
+        payable(msg.sender).transfer("tti_5649544520544f4b454e6e40", actualBurnRevenue);
     }
 
-    function _computeIntegral(address _tokenId, uint128 _oldSupply, uint128 _newSupply) internal view returns(uint256) {
+    function _computeIntegral(address _tokenId, uint128 _oldSupply, uint128 _newSupply) internal view returns(int256) {
         require(_oldSupply >= MINIMUM_SUPPLY);
         require(_newSupply >= MINIMUM_SUPPLY);
-        uint256 tradableOldSupply = uint256(_oldSupply - MINIMUM_SUPPLY);
-        uint256 tradableNewSupply = uint256(_newSupply - MINIMUM_SUPPLY);
+        int256 tradableOldSupply = int256(uint256(_oldSupply - MINIMUM_SUPPLY));
+        int256 tradableNewSupply = int256(uint256(_newSupply - MINIMUM_SUPPLY));
 
         // Integral of coefficient * tradableSupply is
         // coefficient * (tradableSupply^2) / 2
         // We rearrange it to mitigate overflows and underflows
-        return coefficients[_tokenId] * (
-            (tradableNewSupply * tradableNewSupply - tradableOldSupply * tradableOldSupply) / SQUARED_TOKEN_PRECISION
-        ) / (2 * COEFFICIENT_PRECISION);
+        return int256(uint256(coefficients[_tokenId])) * (
+            tradableNewSupply * tradableNewSupply - tradableOldSupply * tradableOldSupply
+        ) / (2 * int256(uint256(COEFFICIENT_PRECISION)) * int256(uint256(SQUARED_TOKEN_PRECISION)));
     }
 
     function _mintCost(address _tokenId, uint128 _amount) internal view returns(uint256) {
         uint128 oldSupply = supplies[_tokenId];
 
-        // Negative of integral from a to b = integral from b to a
-        return uint256(_computeIntegral(_tokenId, oldSupply + _amount, oldSupply));
+        return uint256(_computeIntegral(_tokenId, oldSupply, oldSupply + _amount));
     }
 
     function mintCost(address _tokenId, uint128 _amount) external view returns(uint256) {
@@ -122,7 +121,7 @@ contract CreatorToken {
     function _burnRevenue(address _tokenId, uint128 _amount) internal view returns(uint256) {
         uint128 oldSupply = supplies[_tokenId];
 
-        return uint256(_computeIntegral(_tokenId, oldSupply, oldSupply - _amount));
+        return uint256(-_computeIntegral(_tokenId, oldSupply, oldSupply - _amount));
     }
 
     function burnRevenue(address _tokenId, uint128 _amount) external view returns(uint256) {
@@ -132,9 +131,10 @@ contract CreatorToken {
         return _burnRevenue(_tokenId, _amount);
     }
 
-    function createToken() public {
+    function createToken(uint128 coefficient) public {
         require(supplies[msg.sender] == 0, "CreatorToken: token already created");
         supplies[msg.sender] = MINIMUM_SUPPLY;
         balances[msg.sender][msg.sender] = MINIMUM_SUPPLY;
+        coefficients[msg.sender] = coefficient;
     }
 }
