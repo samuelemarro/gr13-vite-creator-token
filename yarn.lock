@@ -178,10 +178,10 @@
     websocket "^1.0.26"
     xhr2 "^0.2.0"
 
-"@vite/vuilder@0.1.0-alpha.8":
-  version "0.1.0-alpha.8"
-  resolved "https://registry.yarnpkg.com/@vite/vuilder/-/vuilder-0.1.0-alpha.8.tgz#f0244811cb04a96df2943909d29f7a63d3fb82ac"
-  integrity sha512-dFZXdpj9ZEiMzJGfr+3t8AXYO09eY+1P/22jslQJgwpcPX/+1zdI/nDvH/O2XsTSGLHyK1qhJZzj+kQnVx8YIw==
+"@vite/vuilder@0.1.0-alpha.9":
+  version "0.1.0-alpha.9"
+  resolved "https://registry.yarnpkg.com/@vite/vuilder/-/vuilder-0.1.0-alpha.9.tgz#0305e0ae22022313e30c661b10d7e7b1d204743a"
+  integrity sha512-K4kv1I1FiNJiLQCVqlcUytvOM9ZRVOMOU/X3fjj/UGYGNUjhOQFKcgKvVEZOLWVc4gpzjMhDjfRQWDg4hR/N8w==
   dependencies:
     "@vite/solppc" "^0.8.0-alpha.1"
     "@vite/vitejs" "^2.3.17"
