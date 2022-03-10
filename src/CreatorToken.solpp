@@ -6,6 +6,11 @@
 pragma soliditypp ^0.8.0;
 
 contract CreatorToken {
+    event TokenCreated(address indexed tokenId);
+    event TokenMinted(address indexed owner, address indexed tokenId, uint128 amount);
+    event TokenBurned(address indexed owner, address indexed tokenId, uint128 amount);
+    event TokenTransferred(address indexed from, address indexed to, address indexed tokenId, uint128 amount);
+
     // We use uint128 so that squares don't overflow in uint256 math
     mapping(address => uint128) private supplies;
     mapping(address => uint128) private coefficients;
@@ -72,6 +77,8 @@ contract CreatorToken {
         supplies[msg.sender] = MINIMUM_SUPPLY;
         balances[msg.sender][msg.sender] = MINIMUM_SUPPLY;
         coefficients[msg.sender] = coefficient;
+
+        emit TokenCreated(msg.sender);
     }
 
     function transfer(address _to, address _tokenId, uint128 _amount) external {
@@ -80,6 +87,8 @@ contract CreatorToken {
         require(balanceOf(msg.sender, _tokenId) >= _amount);
         balances[msg.sender][_tokenId] -= _amount;
         balances[_to][_tokenId] += _amount;
+
+        emit TokenTransferred(msg.sender, _to, _tokenId, _amount);
     }
 
     // ===Sale Methods===
@@ -118,6 +127,8 @@ contract CreatorToken {
         supplies[_tokenId] += _amount;
         balances[msg.sender][_tokenId] += _amount;
 
+        emit TokenMinted(msg.sender, _tokenId, _amount);
+
         return computedMintCost;
     }
 
@@ -153,6 +164,8 @@ contract CreatorToken {
 
         supplies[_tokenId] -= _amount;
         balances[msg.sender][_tokenId] -= _amount;
+
+        emit TokenBurned(msg.sender, _tokenId, _amount);
 
         return computedBurnRevenue;
     }
