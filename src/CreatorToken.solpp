@@ -111,15 +111,19 @@ contract CreatorToken {
         return _mintCost(_tokenId, _amount);
     }
 
-    function mint(address _tokenId, uint128 _amount) external payable {
-        require(exists(_tokenId), "CreatorToken: token does not exist");
-        require(_amount > 0, "CreatorToken: _amount must be greater than zero");
-        
+    function _mint(address _tokenId, uint128 _amount) internal returns(uint256) {
         uint256 computedMintCost = _mintCost(_tokenId, _amount);
         require(msg.value >= computedMintCost, "CreatorToken: not enough Vite to mint");
 
         supplies[_tokenId] += _amount;
         balances[msg.sender][_tokenId] += _amount;
+    }
+
+    function mint(address _tokenId, uint128 _amount) external payable {
+        require(exists(_tokenId), "CreatorToken: token does not exist");
+        require(_amount > 0, "CreatorToken: _amount must be greater than zero");
+        
+        uint256 computedMintCost = _mint(_tokenId, _amount);
 
         if (msg.value > computedMintCost) {
             // Minter overpaid (e.g. to avoid frontrunning), send back the difference
@@ -137,20 +141,132 @@ contract CreatorToken {
     function burnRevenue(address _tokenId, uint128 _amount) external view returns(uint256) {
         require(exists(_tokenId), "CreatorToken: token does not exist");
         require(_amount > 0, "CreatorToken: _amount must be greater than zero");
+        require(_amount <= _tradableSupply(_tokenId), "CreatorToken: _amount must be less than or equal to tradable supply");
         require(_balanceOf(msg.sender, _tokenId) >= _amount, "CreatorToken: not enough tokens to burn");
         return _burnRevenue(_tokenId, _amount);
     }
 
-    function burn(address _tokenId, uint128 _amount) external {
-        require(exists(_tokenId), "CreatorToken: token does not exist");
-        require(_amount > 0, "CreatorToken: _amount must be greater than zero");
-        require(_balanceOf(msg.sender, _tokenId) >= _amount, "CreatorToken: not enough tokens to burn");
-
+    function _burn(address _tokenId, uint128 _amount) internal returns(uint256) {
         uint256 computedBurnRevenue = _burnRevenue(_tokenId, _amount);
 
         supplies[_tokenId] -= _amount;
         balances[msg.sender][_tokenId] -= _amount;
 
+        return computedBurnRevenue;
+    }
+
+    function burn(address _tokenId, uint128 _amount) external {
+        require(exists(_tokenId), "CreatorToken: token does not exist");
+        require(_amount > 0, "CreatorToken: _amount must be greater than zero");
+        require(_amount <= _tradableSupply(_tokenId), "CreatorToken: _amount must be less than or equal to tradable supply");
+        require(_balanceOf(msg.sender, _tokenId) >= _amount, "CreatorToken: not enough tokens to burn");
+
+        uint256 computedBurnRevenue = _burn(_tokenId, _amount);
+
         payable(msg.sender).transfer("tti_5649544520544f4b454e6e40", computedBurnRevenue);
+    }
+
+    // ===Swap Methods===
+
+    /// @notice Calculates the square root of x, rounding down.
+    /// @dev Uses the Babylonian method https://en.wikipedia.org/wiki/Methods_of_computing_square_roots#Babylonian_method.
+    ///
+    /// Caveats:
+    /// - This function does not work with fixed-point numbers.
+    ///
+    /// @param x The uint256 number for which to calculate the square root.
+    /// @return result The result as an uint256.
+    ///
+    /// @notice Source: https://github.com/paulrberg/prb-math/blob/v1.0.3/contracts/PRBMathCommon.sol
+    function _sqrt(uint256 x) internal pure returns (uint256 result) {
+        if (x == 0) {
+            return 0;
+        }
+
+        // Calculate the square root of the perfect square of a power of two that is the closest to x.
+        uint256 xAux = uint256(x);
+        result = 1;
+        if (xAux >= 0x100000000000000000000000000000000) {
+            xAux >>= 128;
+            result <<= 64;
+        }
+        if (xAux >= 0x10000000000000000) {
+            xAux >>= 64;
+            result <<= 32;
+        }
+        if (xAux >= 0x100000000) {
+            xAux >>= 32;
+            result <<= 16;
+        }
+        if (xAux >= 0x10000) {
+            xAux >>= 16;
+            result <<= 8;
+        }
+        if (xAux >= 0x100) {
+            xAux >>= 8;
+            result <<= 4;
+        }
+        if (xAux >= 0x10) {
+            xAux >>= 4;
+            result <<= 2;
+        }
+        if (xAux >= 0x8) {
+            result <<= 1;
+        }
+
+        // The operations can never overflow because the result is max 2^127 when it enters this block.
+        unchecked {
+            result = (result + x / result) >> 1;
+            result = (result + x / result) >> 1;
+            result = (result + x / result) >> 1;
+            result = (result + x / result) >> 1;
+            result = (result + x / result) >> 1;
+            result = (result + x / result) >> 1;
+            result = (result + x / result) >> 1; // Seven iterations should be enough
+            uint256 roundedDownResult = x / result;
+            return result >= roundedDownResult ? roundedDownResult : result;
+        }
+    }
+
+    /// @notice Calculates the inverse integral, rounding down.
+    function _inverseIntegral(address _tokenId, uint128 _oldSupply, uint256 _difference) internal view returns(uint128) {
+        require(_oldSupply >= MINIMUM_SUPPLY);
+    
+        uint256 tradableOldSupply = uint256(_oldSupply - MINIMUM_SUPPLY);
+
+        // Integral of coefficient * tradableSupply is
+        //  coefficient * (tradableSupply^2) / 2
+        // Therefore
+        //  difference = coefficient/2 * new^2 - coefficient/2 * old^2
+        // Rearranging, we get 
+        //  2/coefficient * difference = new^2 - old^2
+        // which is equivalent to
+        //  new = sqrt(2/coefficient * difference - old^2)
+        uint256 newSupply = _sqrt((2 * _difference / coefficients[_tokenId]) - (tradableOldSupply * tradableOldSupply));
+        return uint128(newSupply + MINIMUM_SUPPLY);
+    }
+
+    function swap(address _currentToken, address _newToken, uint128 _amount) external {
+        require(exists(_currentToken), "CreatorToken: current token does not exist");
+        require(exists(_newToken), "CreatorToken: new token does not exist");
+        require(_amount > 0, "CreatorToken: _amount must be greater than zero");
+        require(_amount <= _tradableSupply(_currentToken), "CreatorToken: _amount must be less than or equal to tradable supply");
+        require(_balanceOf(msg.sender, _currentToken) >= _amount, "CreatorToken: not enough current tokens to swap");
+
+        uint256 computedBurnRevenue = _burn(_currentToken, _amount);
+        // Note: _inverseIntegral rounds down
+        uint128 newTokenAmount = _inverseIntegral(_newToken, _totalSupply(_newToken), computedBurnRevenue);
+        require(newTokenAmount <= _tradableSupply(_newToken), "CreatorToken: not enough tradable new tokens to swap");
+
+        uint256 computedMintCost = _mint(_newToken, newTokenAmount);
+
+        // Sanity check
+        require(computedMintCost <= computedBurnRevenue, "CreatorToken: mint cost is greater than burn revenue");
+
+        // _inverseIntegral rounds down, so we might have bought less than we sold. In that case, transfer the difference
+        if (computedMintCost < computedBurnRevenue) {
+            uint256 refund = computedBurnRevenue - computedMintCost;
+            payable(msg.sender).transfer("tti_5649544520544f4b454e6e40", refund);
+        }
     }
 }
