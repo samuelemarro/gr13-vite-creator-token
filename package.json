@@ -8,6 +8,7 @@
   "license": "MIT",
   "dependencies": {
     "@vite/vuilder": "0.1.0-alpha.8",
+    "chai-as-promised": "^7.1.1",
     "ts-node": "^10.7.0"
   },
   "devDependencies": {
