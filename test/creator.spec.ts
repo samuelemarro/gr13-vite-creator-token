@@ -46,10 +46,10 @@ describe('test CreatorToken', function () {
             await contract.call('createToken', [154], {caller: alice});
         });
 
-        /*it('fails to create a token with an odd coefficient', async function() {
+        it('fails to create a token with an odd coefficient', async function() {
             await expect(
                 contract.call('createToken', [153], {caller: alice})
             ).to.eventually.be.rejectedWith('revert');
-        });*/
+        });
     })
 });
