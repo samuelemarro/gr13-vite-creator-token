@@ -7,27 +7,64 @@ pragma soliditypp ^0.8.0;
 
 contract CreatorToken {
     // We use uint128 so that squares don't overflow in uint256 math
-    mapping(address => uint128) public supplies;
-    mapping(address => uint128) public coefficients;
+    mapping(address => uint128) private supplies;
+    mapping(address => uint128) private coefficients;
     // owner => (tokenId => amount) mapping
-    mapping(address => mapping(address => uint128)) public balances;
+    mapping(address => mapping(address => uint128)) private balances;
 
-    uint128 public constant MINIMUM_SUPPLY = 1e5;
+    // Note: must be greater than 0
+    uint128 public constant MINIMUM_SUPPLY = 1e4;
 
     constructor () {
     }
 
-    function balanceOf(address owner, address tokenId) public view returns(uint128) {
-        return balances[owner][tokenId];
+    // ===Getters===
+
+    function exists(address _tokenId) public view returns (bool) {
+        return supplies[_tokenId] > 0;
     }
 
-    function _tradableSupply(address tokenId) internal view returns(uint128) {
-        return supplies[tokenId] - MINIMUM_SUPPLY;
+    function _balanceOf(address _owner, address _tokenId) public view returns (uint128) {
+        return balances[_owner][_tokenId];
+    }
+
+    function balanceOf(address _tokenId, address _owner) public view returns(uint128) {
+        require(exists(_tokenId), "CreatorToken: token does not exist");
+        return balances[_owner][_tokenId];
+    }
+
+    function _totalSupply(address _tokenId) internal view returns(uint128) {
+        return supplies[_tokenId];
+    }
+
+    function totalSupply(address _tokenId) external view returns(uint128) {
+        require(exists(_tokenId), "CreatorToken: token does not exist");
+        return _totalSupply(_tokenId);
+    }
+
+    function _tradableSupply(address _tokenId) internal view returns(uint128) {
+        return supplies[_tokenId] - MINIMUM_SUPPLY;
+    }
+
+    function tradableSupply(address _tokenId) external view returns(uint128) {
+        require(exists(_tokenId), "CreatorToken: token does not exist");
+        return _tradableSupply(_tokenId);
     }
 
     function _tokenCoefficient(address tokenId) internal view returns(uint128) {
         return coefficients[tokenId];
     }
+
+    function tokenCoefficient(address tokenId) external view returns(uint128) {
+        require(exists(tokenId), "CreatorToken: token does not exist");
+        return _tokenCoefficient(tokenId);
+    }
+
+    function currentPrice(address _tokenId) external view returns(uint128) {
+        return _tradableSupply(_tokenId) * _tokenCoefficient(_tokenId);
+    }
+
+    // ===Non-Sale Methods===
 
     function createToken(uint128 coefficient) public {
         require(supplies[msg.sender] == 0, "CreatorToken: token already created");
@@ -37,10 +74,6 @@ contract CreatorToken {
         coefficients[msg.sender] = coefficient;
     }
 
-    function currentPrice(address _tokenId) external view returns(uint128) {
-        return _tradableSupply(_tokenId) * _tokenCoefficient(_tokenId);
-    }
-
     function transfer(address _to, address _tokenId, uint128 _amount) external {
         require(_to != address(this), "CreatorToken: cannot transfer to self");
         require(_amount > 0);
@@ -48,6 +81,8 @@ contract CreatorToken {
         balances[msg.sender][_tokenId] -= _amount;
         balances[_to][_tokenId] += _amount;
     }
+
+    // ===Sale Methods===
 
     function _computeIntegral(address _tokenId, uint128 _oldSupply, uint128 _newSupply) internal view returns(int256) {
         require(_oldSupply >= MINIMUM_SUPPLY);
@@ -73,13 +108,13 @@ contract CreatorToken {
     }
 
     function mintCost(address _tokenId, uint128 _amount) external view returns(uint256) {
-        require(supplies[_tokenId] > 0, "CreatorToken: token has not been created");
-        require(_amount > 0);
+        require(supplies[_tokenId] > 0, "CreatorToken: token does not exist");
+        require(_amount > 0, "CreatorToken: amount must be greater than 0");
         return _mintCost(_tokenId, _amount);
     }
 
     function mint(address _tokenId, uint128 _amount) external payable {
-        require(supplies[_tokenId] > 0, "CreatorToken: token has not been created");
+        require(exists(_tokenId), "CreatorToken: token does not exist");
         require(_amount > 0, "CreatorToken: _amount must be greater than zero");
         
         uint256 computedMintCost = _mintCost(_tokenId, _amount);
@@ -89,7 +124,7 @@ contract CreatorToken {
         balances[msg.sender][_tokenId] += _amount;
 
         if (msg.value > computedMintCost) {
-            // Minter overpaid, send back the difference
+            // Minter overpaid (e.g. to avoid frontrunning), send back the difference
             uint256 refund = msg.value - computedMintCost;
             payable(msg.sender).transfer("tti_5649544520544f4b454e6e40", refund);
         }
@@ -102,14 +137,14 @@ contract CreatorToken {
     }
 
     function burnRevenue(address _tokenId, uint128 _amount) external view returns(uint256) {
-        require(supplies[_tokenId] > 0, "CreatorToken: token has not been created");
-        require(_amount > 0);
+        require(supplies[_tokenId] > 0, "CreatorToken: token does not exist");
+        require(_amount > 0, "CreatorToken: _amount must be greater than zero");
         require(balanceOf(msg.sender, _tokenId) >= _amount, "CreatorToken: not enough tokens to burn");
         return _burnRevenue(_tokenId, _amount);
     }
 
     function burn(address _tokenId, uint128 _amount) external {
-        require(supplies[_tokenId] > 0, "CreatorToken: token has not been created");
+        require(supplies[_tokenId] > 0, "CreatorToken: token does not exist");
         require(_amount > 0, "CreatorToken: _amount must be greater than zero");
         require(balanceOf(msg.sender, _tokenId) >= _amount, "CreatorToken: not enough tokens to burn");
 
