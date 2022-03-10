@@ -13,10 +13,7 @@ contract CreatorToken {
     mapping(address => mapping(address => uint128)) public balances;
     mapping(address => uint256) public backingBalances;
 
-    uint128 public constant TOKEN_PRECISION = 1e18;
-    uint128 public constant SQUARED_TOKEN_PRECISION = TOKEN_PRECISION * TOKEN_PRECISION;
-    uint128 public constant MINIMUM_SUPPLY = TOKEN_PRECISION * 1e5;
-    uint128 public constant COEFFICIENT_PRECISION = 1e5;
+    uint128 public constant MINIMUM_SUPPLY = 1e5;
 
     constructor () {
     }
@@ -34,7 +31,7 @@ contract CreatorToken {
     }
 
     function currentPrice(address _tokenId) external view returns(uint128) {
-        return _tradableSupply(_tokenId) * _tokenCoefficient(_tokenId) / COEFFICIENT_PRECISION;
+        return _tradableSupply(_tokenId) * _tokenCoefficient(_tokenId);
     }
 
     function transfer(address _to, address _tokenId, uint128 _amount) external {
@@ -103,7 +100,7 @@ contract CreatorToken {
         // We rearrange it to mitigate overflows and underflows
         return int256(uint256(coefficients[_tokenId])) * (
             tradableNewSupply * tradableNewSupply - tradableOldSupply * tradableOldSupply
-        ) / (2 * int256(uint256(COEFFICIENT_PRECISION)) * int256(uint256(SQUARED_TOKEN_PRECISION)));
+        ) / 2;
     }
 
     function _mintCost(address _tokenId, uint128 _amount) internal view returns(uint256) {
