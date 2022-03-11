@@ -18,7 +18,7 @@ describe('test CreatorToken', function () {
     before(async function () {
         provider = vite.localProvider();
         // init users
-        deployer = vite.newAccount(config.networks.local.mnemonic, 0);
+        deployer = vite.newAccount(config.networks.local.mnemonic, 0, );
         alice = vite.newAccount(config.networks.local.mnemonic, 1);
         bob = vite.newAccount(config.networks.local.mnemonic, 2);
         charlie = vite.newAccount(config.networks.local.mnemonic, 3);
@@ -34,7 +34,7 @@ describe('test CreatorToken', function () {
         contract = compiledContracts.CreatorToken;
         // deploy
         contract.setDeployer(deployer).setProvider(provider);
-        await contract.deploy({params: [], responseLatency: 1});
+        await contract.deploy({params: [], responseLatency: 1, tokenId: 'tti_5649544520544f4b454e6e40', amount: '10000000000000000000'});
         expect(contract.address).to.be.a('string');
     });
 
@@ -87,6 +87,22 @@ describe('test CreatorToken', function () {
             expect(await contract.query('tradableSupply', [alice.address], {caller: alice})).to.be.deep.equal(['27']);
             // 154 * 27 = 4158
             expect(await contract.query('currentPrice', [alice.address], {caller: alice})).to.be.deep.equal(['4158']);
+        });
+        it('mints a token twice', async function() {
+            await deployer.sendToken(alice.address, '1000000');
+            await contract.call('createToken', [154], {caller: alice});
+            // Mint 27 tokens
+            // \int_0^27 154x dx = 56133
+            await contract.call('mint', [alice.address, 27], {caller: alice, tokenId: 'tti_5649544520544f4b454e6e40', amount: '56133'});
+            expect(await contract.balance()).to.be.deep.equal(['56133']);
+            // 1000000 - 56133 = 943867
+            expect(await alice.balance()).to.be.deep.equal(['943867']);
+
+            expect(await contract.query('balanceOf', [alice.address, alice.address], {caller: alice})).to.be.deep.equal(['10027']);
+            expect(await contract.query('totalSupply', [alice.address], {caller: alice})).to.be.deep.equal(['10027']);
+            expect(await contract.query('tradableSupply', [alice.address], {caller: alice})).to.be.deep.equal(['27']);
+            // 154 * 27 = 4158
+            expect(await contract.query('currentPrice', [alice.address], {caller: alice})).to.be.deep.equal(['4158']);
 
             // Mint 10 tokens
             // \int_27^37 154x dx = 49280
@@ -104,12 +120,14 @@ describe('test CreatorToken', function () {
         });
 
         it('fails to mint a non-existent token', async function() {
+            await deployer.sendToken(alice.address, '1000000');
             await expect(
                 contract.call('mint', [alice.address, 0], {caller: alice, tokenId: 'tti_5649544520544f4b454e6e40', amount: '56133'})
             ).to.eventually.be.rejectedWith('revert');
         });
 
         it('fails to mint 0 tokens', async function() {
+            await deployer.sendToken(alice.address, '1000000');
             await contract.call('createToken', [154], {caller: alice});
             await expect(
                 contract.call('mint', [alice.address, 0], {caller: alice, tokenId: 'tti_5649544520544f4b454e6e40', amount: '56133'})
