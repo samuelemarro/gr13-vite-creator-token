@@ -18,7 +18,7 @@ describe('test CreatorToken', function () {
     before(async function () {
         provider = vite.localProvider();
         // init users
-        deployer = vite.newAccount(config.networks.local.mnemonic, 0, );
+        deployer = vite.newAccount(config.networks.local.mnemonic, 0);
         alice = vite.newAccount(config.networks.local.mnemonic, 1);
         bob = vite.newAccount(config.networks.local.mnemonic, 2);
         charlie = vite.newAccount(config.networks.local.mnemonic, 3);
