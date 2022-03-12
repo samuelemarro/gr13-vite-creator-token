@@ -384,6 +384,32 @@ describe('test CreatorToken', function () {
                 contract.call('swap', [alice.address, bob.address, '155'], {caller: alice})
             ).to.eventually.be.rejectedWith('revert');
         });
+
+        it('fails to swap more tokens than the balance', async function() {
+            await deployer.sendToken(alice.address, '1000000');
+
+            await deployer.sendToken(bob.address, '1000000');
+            await contract.call('createToken', ['154'], {caller: alice});
+
+            await deployer.sendToken(bob.address, '1000000');
+            await contract.call('createToken', ['32'], {caller: bob});
+
+            // Transfer 10000 Alice-tokens to Bob
+            await contract.call('transfer', [alice.address, bob.address, '10000'], {caller: alice});
+
+            // Mint 27 Alice-tokens
+            // \int_0^27 154x dx = 56133
+            await contract.call('mint', [alice.address, 27], {caller: alice, value: 56133});
+
+            // Mint 89 Bob-tokens
+            // \int_0^89 32x dx = 126736
+            await contract.call('mint', [bob.address, 89], {caller: bob, value: 126736});
+
+            // Alice only has 27 Alice-tokens
+            await expect(
+                contract.call('swap', [alice.address, bob.address, '28'], {caller: alice})
+            ).to.eventually.be.rejectedWith('revert');
+        });
     });
 
     describe('simulateSwap', function() {
