@@ -169,6 +169,18 @@ describe('test CreatorToken', function () {
             // 154 * 27 = 4158
             expect(await contract.query('currentPrice', [alice.address], {caller: alice})).to.be.deep.equal(['4158']);
         })
+
+        it.only('fails to underpay a mint call', async function() {
+            await deployer.sendToken(alice.address, '1000000');
+            await contract.call('createToken', [154], {caller: alice});
+            // Mint 27 tokens
+            // \int_0^27 154x dx = 56133
+            // We're gonna pay 56132
+
+            await expect(
+                contract.call('mint', [alice.address, 0], {caller: alice, value: '56132'})
+            ).to.eventually.be.rejectedWith('revert');
+        });
     });
 
     describe('burn', function() {
@@ -422,8 +434,8 @@ describe('test CreatorToken', function () {
 
             // Mint 27 Alice-tokens
             // \int_0^27 154x dx = 56133
-            await contract.call('mint', [alice.address, 27], {caller: alice, token: "tti_564954455820434f494e69b5", value: 56133});
-            // (await contract.balance()).to.be.deep.equal(['56133']); // Disabled due to amount bug
+            await contract.call('mint', [alice.address, 27], {caller: alice, token: "tti_564954455820434f494e69b5", amount: 56133});
+            // expect(await contract.balance()).to.be.deep.equal(['56133']); // Disabled due to amount bug
             // Alice's balance is now 1000000 - 56133 = 943867
             // expect(await alice.balance()).to.be.deep.equal(['943867']); // Disabled due to amount bug
 
