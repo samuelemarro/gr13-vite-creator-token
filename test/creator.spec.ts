@@ -81,17 +81,18 @@ describe('test CreatorToken', function () {
     });
 
     describe('transfer', function() {
-        it.only('transfers a token', async function () {
+        it('transfers a token', async function () {
             await contract.call('createToken', [154], {caller: alice});
             await contract.call('transfer', [alice.address, bob.address, '1'], {caller: alice});
 
-            let events = await contract.getPastEvents('allEvents', {fromHeight: 0, toHeight: 100});
+            const events = await contract.getPastEvents('allEvents', {fromHeight: 0, toHeight: 100});
             checkEvents(events, [
                 { '0': alice.address, tokenId: alice.address }, // Token created
-                { '0': alice.address, tokenId: alice.address,
-                  '1': alice.address, from: alice.address,
-                  '2': bob.address, to: bob.address,
-                  '3': '1', amount: '1'
+                {
+                    '0': alice.address, tokenId: alice.address,
+                    '1': alice.address, from: alice.address,
+                    '2': bob.address, to: bob.address,
+                    '3': '1', amount: '1'
                 } // Token transferred
             ])
         });
@@ -120,6 +121,16 @@ describe('test CreatorToken', function () {
             expect(await contract.query('tradableSupply', [alice.address], {caller: alice})).to.be.deep.equal(['27']);
             // 154 * 27 = 4158
             expect(await contract.query('currentPrice', [alice.address], {caller: alice})).to.be.deep.equal(['4158']);
+
+            const events = await contract.getPastEvents('allEvents', {fromHeight: 0, toHeight: 100});
+            checkEvents(events, [
+                { '0': alice.address, tokenId: alice.address }, // Token created
+                {
+                    '0': alice.address, tokenId: alice.address,
+                    '1': alice.address, owner: alice.address,
+                    '2': '27', amount: '27'
+                } // Token minted
+            ]);
         });
 
         it('mints a token twice', async function() {
@@ -151,6 +162,21 @@ describe('test CreatorToken', function () {
             expect(await contract.query('tradableSupply', [alice.address], {caller: alice})).to.be.deep.equal(['37']);
             // 154 * 37 = 5698
             expect(await contract.query('currentPrice', [alice.address], {caller: alice})).to.be.deep.equal(['5698']);
+
+            const events = await contract.getPastEvents('allEvents', {fromHeight: 0, toHeight: 100});
+            checkEvents(events, [
+                { '0': alice.address, tokenId: alice.address }, // Token created
+                {
+                    '0': alice.address, tokenId: alice.address,
+                    '1': alice.address, owner: alice.address,
+                    '2': '27', amount: '27'
+                }, // Token minted
+                {
+                    '0': alice.address, tokenId: alice.address,
+                    '1': alice.address, owner: alice.address,
+                    '2': '10', amount: '10'
+                }, // Token minted
+            ]);
         });
 
         it('fails to mint a non-existent token', async function() {
@@ -226,6 +252,21 @@ describe('test CreatorToken', function () {
 
             // 25 * 154 = 3850
             expect(await contract.query('currentPrice', [alice.address], {caller: alice})).to.be.deep.equal(['3850']);
+
+            const events = await contract.getPastEvents('allEvents', {fromHeight: 0, toHeight: 100});
+            checkEvents(events, [
+                { '0': alice.address, tokenId: alice.address }, // Token created
+                {
+                    '0': alice.address, tokenId: alice.address,
+                    '1': alice.address, owner: alice.address,
+                    '2': '27', amount: '27'
+                }, // Token minted
+                {
+                    '0': alice.address, tokenId: alice.address,
+                    '1': alice.address, owner: alice.address,
+                    '2': '2', amount: '2'
+                }, // Token burned
+            ]);
         });
 
         it('burns a token twice', async function() {
@@ -287,7 +328,7 @@ describe('test CreatorToken', function () {
     });
 
     describe('swap', function() {
-        it('swaps two tokens', async function() {
+        it.only('swaps two tokens', async function() {
             await deployer.sendToken(alice.address, '1000000');
             await contract.call('createToken', ['154'], {caller: alice});
 
@@ -330,13 +371,39 @@ describe('test CreatorToken', function () {
             expect(await contract.query('totalSupply', [bob.address], {caller: bob})).to.be.deep.equal(['10103']);
             expect(await contract.query('tradableSupply', [bob.address], {caller: bob})).to.be.deep.equal(['103']);
 
-            // the new Bob-tokens are worth \int_89^103 32x dx = 43008
+            // The new Bob-tokens are worth \int_89^103 32x dx = 43008
             // In other words, Alice didn't receive enough Bob-tokens to cover the full swap amount
             // The difference (45045 - 43008 = 2037) is refunded to Alice
             // Contract's balance is now 182869 - 2037 = 180832
             // expect(await contract.balance()).to.be.deep.equal(['180832']); // Disabled due to amount bug
             // Alice's balance is now 943867 + 2037 = 945904
             // expect(await alice.balance()).to.be.deep.equal(['945904']); // Disabled due to amount bug
+
+            const events = await contract.getPastEvents('allEvents', {fromHeight: 0, toHeight: 100});
+            checkEvents(events, [
+                { '0': alice.address, tokenId: alice.address }, // Alice-token created
+                { '0': bob.address, tokenId: bob.address }, // Bob-token created
+                {
+                    '0': alice.address, tokenId: alice.address,
+                    '1': alice.address, owner: alice.address,
+                    '2': '27', amount: '27'
+                }, // Alice-token minted by Alice
+                {
+                    '0': bob.address, tokenId: bob.address,
+                    '1': bob.address, owner: bob.address,
+                    '2': '89', amount: '89'
+                }, // Bob-token minted by Bob
+                {
+                    '0': alice.address, tokenId: alice.address,
+                    '1': alice.address, owner: alice.address,
+                    '2': '15', amount: '15'
+                }, // Alice-token burned by Alice
+                {
+                    '0': bob.address, tokenId: bob.address,
+                    '1': alice.address, owner: alice.address,
+                    '2': '14', amount: '14'
+                } // Bob-token minted by Alice
+            ]);
         });
 
         it('fails to swap a non-existent token', async function() {
