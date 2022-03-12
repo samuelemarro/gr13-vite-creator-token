@@ -182,6 +182,53 @@ contract CreatorToken {
         // payable(msg.sender).transfer("tti_5649544520544f4b454e6e40", computedBurnRevenue);
     }
 
+    // ===Inverse Methods===
+    /// @notice Calculates the inverse integral, rounding down.
+    function _inverseIntegral(address _tokenId, uint128 _oldSupply, uint256 _difference) internal view returns(uint128) {
+        require(_oldSupply >= MINIMUM_SUPPLY);
+    
+        uint256 tradableOldSupply = uint256(_oldSupply - MINIMUM_SUPPLY);
+
+        // Integral of coefficient * tradableSupply is
+        //  coefficient * (tradableSupply^2) / 2
+        // Therefore
+        //  difference = coefficient/2 * new^2 - coefficient/2 * old^2
+        // Rearranging, we get 
+        //  2/coefficient * difference = new^2 - old^2
+        // which is equivalent to
+        //  new = sqrt(2/coefficient * difference - old^2)
+        uint256 newSupply = _sqrt((2 * _difference / coefficients[_tokenId]) + (tradableOldSupply * tradableOldSupply));
+        return uint128(newSupply + MINIMUM_SUPPLY);
+    }
+
+    function _burnAmount(address _tokenId, uint256 _revenue) internal view returns(uint128) {
+        uint128 oldSupply = _totalSupply(_tokenId);
+
+        uint128 newSupply = _inverseIntegral(_tokenId, oldSupply, _revenue);
+        return oldSupply - newSupply;
+    }
+
+    /// @notice Reverts if burning such an amount would bring the supply below the minimum
+    function burnAmount(address _tokenId, uint256 _revenue) external view returns(uint128) {
+        require(exists(_tokenId), "CreatorToken: token does not exist");
+        // Note: does not check if _revenue is greater than 0
+        return _burnAmount(_tokenId, _revenue);
+    }
+
+    function _mintAmount(address _tokenId, uint256 _cost) internal view returns(uint128) {
+        uint128 oldSupply = _totalSupply(_tokenId);
+
+        uint128 newSupply = _inverseIntegral(_tokenId, oldSupply, _cost);
+        return newSupply - oldSupply;
+    }
+
+    function mintAmount(address _tokenId, uint256 _cost) external view returns(uint128) {
+        require(exists(_tokenId), "CreatorToken: token does not exist");
+        // Note: does not check if _cost is greater than 0
+        return _mintAmount(_tokenId, _cost);
+    }
+
+
     // ===Swap Methods===
 
     /// @notice Calculates the square root of x, rounding down.
@@ -244,23 +291,7 @@ contract CreatorToken {
         }
     }
 
-    /// @notice Calculates the inverse integral, rounding down.
-    function _inverseIntegral(address _tokenId, uint128 _oldSupply, uint256 _difference) internal view returns(uint128) {
-        require(_oldSupply >= MINIMUM_SUPPLY);
     
-        uint256 tradableOldSupply = uint256(_oldSupply - MINIMUM_SUPPLY);
-
-        // Integral of coefficient * tradableSupply is
-        //  coefficient * (tradableSupply^2) / 2
-        // Therefore
-        //  difference = coefficient/2 * new^2 - coefficient/2 * old^2
-        // Rearranging, we get 
-        //  2/coefficient * difference = new^2 - old^2
-        // which is equivalent to
-        //  new = sqrt(2/coefficient * difference - old^2)
-        uint256 newSupply = _sqrt((2 * _difference / coefficients[_tokenId]) + (tradableOldSupply * tradableOldSupply));
-        return uint128(newSupply + MINIMUM_SUPPLY);
-    }
 
     function swap(address _currentToken, address _newToken, uint128 _amount) external {
         require(exists(_currentToken), "CreatorToken: current token does not exist");
