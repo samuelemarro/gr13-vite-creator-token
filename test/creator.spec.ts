@@ -147,7 +147,7 @@ describe('test CreatorToken', function () {
             ).to.eventually.be.rejectedWith('revert');
         });
 
-        it.only('overpays a mint call', async function() {
+        it('overpays a mint call', async function() {
             await deployer.sendToken(alice.address, '1000000');
             await contract.call('createToken', [154], {caller: alice});
             // Mint 27 tokens
@@ -380,6 +380,23 @@ describe('test CreatorToken', function () {
             // Only 154 Alice-tokens are tradable
             await expect(
                 contract.call('swap', [alice.address, bob.address, '155'], {caller: alice})
+            ).to.eventually.be.rejectedWith('revert');
+        });
+    });
+
+    describe('mintCost', function() {
+        it('computes the cost of a mint', async function () {
+            await contract.call('createToken', [154], {caller: alice});
+            // Mint 27 tokens
+            // \int_0^27 154x dx = 56133
+            expect(await contract.query('mintCost', [alice.address, 27], {caller: alice})).to.be.deep.equal(['56133']);
+        });
+
+        it('fails to compute the cost of a mint of a non-existent token', async function () {
+            // Mint 27 tokens
+            // \int_0^27 154x dx = 56133
+            await expect(
+                contract.call('mintCost', [alice.address, 27], {caller: alice})
             ).to.eventually.be.rejectedWith('revert');
         });
     });
