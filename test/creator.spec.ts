@@ -264,7 +264,6 @@ describe('test CreatorToken', function () {
             await contract.call('createToken', ['32'], {caller: bob});
 
             // Mint 27 Alice-tokens
-
             // \int_0^27 154x dx = 56133
             await contract.call('mint', [alice.address, 27], {caller: alice, token: "tti_564954455820434f494e69b5", value: 56133});
             // (await contract.balance()).to.be.deep.equal(['56133']); // Disabled due to amount bug
@@ -307,6 +306,81 @@ describe('test CreatorToken', function () {
             // expect(await contract.balance()).to.be.deep.equal(['180832']); // Disabled due to amount bug
             // Alice's balance is now 943867 + 2037 = 945904
             // expect(await alice.balance()).to.be.deep.equal(['945904']); // Disabled due to amount bug
+        });
+
+        it('fails to swap a non-existent token', async function() {
+            await deployer.sendToken(alice.address, '1000000');
+
+            await deployer.sendToken(bob.address, '1000000');
+            await contract.call('createToken', ['32'], {caller: bob});
+
+            // Mint 89 Bob-tokens
+            // \int_0^89 32x dx = 126736
+            await contract.call('mint', [bob.address, 89], {caller: bob, value: 126736});
+
+            await expect(
+                contract.call('swap', [alice.address, bob.address, '15'], {caller: alice})
+            ).to.eventually.be.rejectedWith('revert');
+        });
+
+        it('fails to swap a token for a non-existent token', async function() {
+            await deployer.sendToken(alice.address, '1000000');
+
+            await deployer.sendToken(bob.address, '1000000');
+            await contract.call('createToken', ['154'], {caller: alice});
+
+            // Mint 27 Alice-tokens
+            // \int_0^27 154x dx = 56133
+            await contract.call('mint', [alice.address, 27], {caller: alice, value: 56133});
+
+            await expect(
+                contract.call('swap', [alice.address, bob.address, '15'], {caller: alice})
+            ).to.eventually.be.rejectedWith('revert');
+        });
+
+        it('fails to swap 0 tokens', async function() {
+            await deployer.sendToken(alice.address, '1000000');
+
+            await deployer.sendToken(bob.address, '1000000');
+            await contract.call('createToken', ['154'], {caller: alice});
+
+            await deployer.sendToken(bob.address, '1000000');
+            await contract.call('createToken', ['32'], {caller: bob});
+
+            // Mint 27 Alice-tokens
+            // \int_0^27 154x dx = 56133
+            await contract.call('mint', [alice.address, 27], {caller: alice, value: 56133});
+
+            // Mint 89 Bob-tokens
+            // \int_0^89 32x dx = 126736
+            await contract.call('mint', [bob.address, 89], {caller: bob, value: 126736});
+
+            await expect(
+                contract.call('swap', [alice.address, bob.address, '0'], {caller: alice})
+            ).to.eventually.be.rejectedWith('revert');
+        });
+
+        it('fails to swap more tokens than the tradable amount', async function() {
+            await deployer.sendToken(alice.address, '1000000');
+
+            await deployer.sendToken(bob.address, '1000000');
+            await contract.call('createToken', ['154'], {caller: alice});
+
+            await deployer.sendToken(bob.address, '1000000');
+            await contract.call('createToken', ['32'], {caller: bob});
+
+            // Mint 27 Alice-tokens
+            // \int_0^27 154x dx = 56133
+            await contract.call('mint', [alice.address, 27], {caller: alice, value: 56133});
+
+            // Mint 89 Bob-tokens
+            // \int_0^89 32x dx = 126736
+            await contract.call('mint', [bob.address, 89], {caller: bob, value: 126736});
+
+            // Only 154 Alice-tokens are tradable
+            await expect(
+                contract.call('swap', [alice.address, bob.address, '155'], {caller: alice})
+            ).to.eventually.be.rejectedWith('revert');
         });
     });
 });
