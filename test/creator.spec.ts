@@ -16,6 +16,13 @@ let bob: any;
 let charlie: any;
 let contract: any;
 
+const checkEvents = (result : any, correct : Array<Object>) => {
+    expect(result).to.be.an('array').with.length(correct.length);
+    for (let i = 0; i < correct.length; i++) {
+        expect(result[i].returnValues).to.be.deep.equal(correct[i]);
+    }
+}
+
 describe('test CreatorToken', function () {
     beforeEach(async function () {
         provider = vite.localProvider();
@@ -74,9 +81,19 @@ describe('test CreatorToken', function () {
     });
 
     describe('transfer', function() {
-        it('transfers a token', async function () {
+        it.only('transfers a token', async function () {
             await contract.call('createToken', [154], {caller: alice});
             await contract.call('transfer', [alice.address, bob.address, '1'], {caller: alice});
+
+            let events = await contract.getPastEvents('allEvents', {fromHeight: 0, toHeight: 100});
+            checkEvents(events, [
+                { '0': alice.address, tokenId: alice.address }, // Token created
+                { '0': alice.address, tokenId: alice.address,
+                  '1': alice.address, from: alice.address,
+                  '2': bob.address, to: bob.address,
+                  '3': '1', amount: '1'
+                } // Token transferred
+            ])
         });
 
         it('fails to transfer a token without enough balance', async function () {
@@ -170,7 +187,7 @@ describe('test CreatorToken', function () {
             expect(await contract.query('currentPrice', [alice.address], {caller: alice})).to.be.deep.equal(['4158']);
         })
 
-        it.only('fails to underpay a mint call', async function() {
+        it('fails to underpay a mint call', async function() {
             await deployer.sendToken(alice.address, '1000000');
             await contract.call('createToken', [154], {caller: alice});
             // Mint 27 tokens
