@@ -400,4 +400,21 @@ describe('test CreatorToken', function () {
             ).to.eventually.be.rejectedWith('revert');
         });
     });
+
+    describe.only('mintAmount', function() {
+        it('computes the amount of a mint', async function () {
+            await contract.call('createToken', [154], {caller: alice});
+            // Mint 27 tokens
+            // \int_0^27 154x dx = 56133
+            expect(await contract.query('mintAmount', [alice.address, 56133], {caller: alice})).to.be.deep.equal(['27']);
+        });
+
+        it('fails to compute the amount of a mint of a non-existent token', async function () {
+            // Mint 27 tokens
+            // \int_0^27 154x dx = 56133
+            await expect(
+                contract.call('mintAmount', [alice.address, 56133], {caller: alice})
+            ).to.eventually.be.rejectedWith('revert');
+        });
+    });
 });
