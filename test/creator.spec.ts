@@ -415,7 +415,7 @@ describe('test CreatorToken', function () {
             // Mint 27 tokens
             // \int_0^27 154x dx = 56133
             await expect(
-                contract.query('mintAmount', [alice.address, 56133], {caller: alice})
+                contract.call('mintAmount', [alice.address, 56133], {caller: alice})
             ).to.eventually.be.rejectedWith('revert');
         });
     });
@@ -438,7 +438,7 @@ describe('test CreatorToken', function () {
             ).to.eventually.be.rejectedWith('revert');
         });
 
-        it.only('fails to compute the burn revenue that would cause the amount to go below the minimum', async function () {
+        it('fails to compute the burn revenue that would cause the supply to go below the minimum', async function () {
             await deployer.sendToken(alice.address, '1000000');
             await contract.call('createToken', ['154'], {caller: alice});
 
@@ -449,6 +449,40 @@ describe('test CreatorToken', function () {
             // We will use 28
             await expect(
                 contract.call('burnRevenue', [alice.address, 28], {caller: alice})
+            ).to.eventually.be.rejectedWith('revert');
+        });
+    });
+
+    describe.only('burnAmount', function() {
+        it('computes the burn amount', async function () {
+            await deployer.sendToken(alice.address, '1000000');
+            await contract.call('createToken', [154], {caller: alice});
+
+            // \int_0^27 154x dx = 56133
+            await contract.call('mint', [alice.address, 27], {caller: alice, value: 56133});
+
+            // \int_27^25 154x dx = -8008
+            expect(await contract.query('burnAmount', [alice.address, 8008], {caller: alice})).to.be.deep.equal(['2']);
+        });
+
+        it('fails to compute the burn amount of a non-existent token', async function () {
+            await expect(
+                contract.call('burnAmount', [alice.address, 8008], {caller: alice})
+            ).to.eventually.be.rejectedWith('revert');
+        });
+
+        it('fails to compute the burn amount that would cause the supply to go below the minimum', async function () {
+            await deployer.sendToken(alice.address, '1000000');
+            await contract.call('createToken', ['154'], {caller: alice});
+
+            // \int_0^27 154x dx = 56133
+            await contract.call('mint', [alice.address, 27], {caller: alice, value: '56133'});
+
+            // \int_27^0 154x dx = -56133
+            // \int_28^0 154x = -60368
+            // We will use 60368
+            await expect(
+                contract.call('burnAmount', [alice.address, 60368], {caller: alice})
             ).to.eventually.be.rejectedWith('revert');
         });
     });
