@@ -1,3 +1,5 @@
+// NOTE: Queries are authomatically retried and don't fail (while calls do), so some query tests have been written as call tests.
+
 import { describe } from "mocha";
 import chai from "chai";
 const vite = require('@vite/vuilder');
@@ -401,19 +403,52 @@ describe('test CreatorToken', function () {
         });
     });
 
-    describe.only('mintAmount', function() {
-        it('computes the amount of a mint', async function () {
+    describe('mintAmount', function() {
+        it('computes the mint amount', async function () {
             await contract.call('createToken', [154], {caller: alice});
             // Mint 27 tokens
             // \int_0^27 154x dx = 56133
             expect(await contract.query('mintAmount', [alice.address, 56133], {caller: alice})).to.be.deep.equal(['27']);
         });
 
-        it('fails to compute the amount of a mint of a non-existent token', async function () {
+        it('fails to compute the mint amount of a non-existent token', async function () {
             // Mint 27 tokens
             // \int_0^27 154x dx = 56133
             await expect(
-                contract.call('mintAmount', [alice.address, 56133], {caller: alice})
+                contract.query('mintAmount', [alice.address, 56133], {caller: alice})
+            ).to.eventually.be.rejectedWith('revert');
+        });
+    });
+
+    describe('burnRevenue', function() {
+        it('computes the burn revenue', async function () {
+            await deployer.sendToken(alice.address, '1000000');
+            await contract.call('createToken', [154], {caller: alice});
+
+            // \int_0^27 154x dx = 56133
+            await contract.call('mint', [alice.address, 27], {caller: alice, value: 56133});
+
+            // \int_27^25 154x dx = -8008
+            expect(await contract.query('burnRevenue', [alice.address, 2], {caller: alice})).to.be.deep.equal(['8008']);
+        });
+
+        it('fails to compute the burn revenue of a non-existent token', async function () {
+            await expect(
+                contract.call('burnRevenue', [alice.address, 2], {caller: alice})
+            ).to.eventually.be.rejectedWith('revert');
+        });
+
+        it.only('fails to compute the burn revenue that would cause the amount to go below the minimum', async function () {
+            await deployer.sendToken(alice.address, '1000000');
+            await contract.call('createToken', ['154'], {caller: alice});
+
+            // \int_0^27 154x dx = 56133
+            await contract.call('mint', [alice.address, 27], {caller: alice, value: '56133'});
+
+            // \int_27^0 154x dx = -56133
+            // We will use 28
+            await expect(
+                contract.call('burnRevenue', [alice.address, 28], {caller: alice})
             ).to.eventually.be.rejectedWith('revert');
         });
     });
