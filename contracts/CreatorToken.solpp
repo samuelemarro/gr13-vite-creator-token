@@ -29,13 +29,13 @@ contract CreatorToken {
         return supplies[_tokenId] > 0;
     }
 
-    function _balanceOf(address _owner, address _tokenId) public view returns (uint128) {
+    function _balanceOf(address _tokenId, address _owner) internal view returns (uint128) {
         return balances[_owner][_tokenId];
     }
 
     function balanceOf(address _tokenId, address _owner) public view returns(uint128) {
         require(exists(_tokenId), "CreatorToken: token does not exist");
-        return balances[_owner][_tokenId];
+        return _balanceOf(_tokenId, _owner);
     }
 
     function _totalSupply(address _tokenId) internal view returns(uint128) {
@@ -156,7 +156,7 @@ contract CreatorToken {
     function burnRevenue(address _tokenId, uint128 _amount) external view returns(uint256) {
         require(exists(_tokenId), "CreatorToken: token does not exist");
         require(_amount <= _tradableSupply(_tokenId), "CreatorToken: _amount must be less than or equal to tradable supply");
-        // require(_balanceOf(msg.sender, _tokenId) >= _amount, "CreatorToken: not enough tokens to burn");
+        // require(_balanceOf(_tokenId, msg.sender) >= _amount, "CreatorToken: not enough tokens to burn");
         return _burnRevenue(_tokenId, _amount);
     }
 
@@ -171,7 +171,7 @@ contract CreatorToken {
         require(exists(_tokenId), "CreatorToken: token does not exist");
         require(_amount > 0, "CreatorToken: _amount must be greater than zero");
         require(_amount <= _tradableSupply(_tokenId), "CreatorToken: _amount must be less than or equal to tradable supply");
-        require(_balanceOf(msg.sender, _tokenId) >= _amount, "CreatorToken: not enough tokens to burn");
+        require(_balanceOf(_tokenId, msg.sender) >= _amount, "CreatorToken: not enough tokens to burn");
 
         // Important: the revenue/cost should always be computed before executing the operation
         uint256 computedBurnRevenue = _burnRevenue(_tokenId, _amount);
@@ -325,7 +325,7 @@ contract CreatorToken {
         require(exists(_newToken), "CreatorToken: new token does not exist");
         require(_amount > 0, "CreatorToken: _amount must be greater than zero");
         require(_amount <= _tradableSupply(_currentToken), "CreatorToken: _amount must be less than or equal to tradable supply");
-        require(_balanceOf(msg.sender, _currentToken) >= _amount, "CreatorToken: not enough current tokens to swap");
+        require(_balanceOf(_currentToken, msg.sender) >= _amount, "CreatorToken: not enough current tokens to swap");
 
         uint128 newTokenAmount;
         uint256 refund;
