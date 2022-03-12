@@ -7,9 +7,9 @@ pragma soliditypp ^0.8.0;
 
 contract CreatorToken {
     event TokenCreated(address indexed tokenId);
-    event TokenMinted(address indexed owner, address indexed tokenId, uint128 amount);
-    event TokenBurned(address indexed owner, address indexed tokenId, uint128 amount);
-    event TokenTransferred(address indexed from, address indexed to, address indexed tokenId, uint128 amount);
+    event TokenMinted(address indexed tokenId, address indexed owner, uint128 amount);
+    event TokenBurned(address indexed tokenId, address indexed owner, uint128 amount);
+    event TokenTransferred(address indexed tokenId, address indexed from, address indexed to, uint128 amount);
 
     // We use uint128 so that squares don't overflow in uint256 math
     mapping(address => uint128) private supplies;
@@ -89,7 +89,7 @@ contract CreatorToken {
         balances[msg.sender][_tokenId] -= _amount;
         balances[_to][_tokenId] += _amount;
 
-        emit TokenTransferred(msg.sender, _to, _tokenId, _amount);
+        emit TokenTransferred(_tokenId, msg.sender, _to,_amount);
     }
 
     // ===Sale Methods===
@@ -125,7 +125,7 @@ contract CreatorToken {
         supplies[_tokenId] += _amount;
         balances[msg.sender][_tokenId] += _amount;
 
-        emit TokenMinted(msg.sender, _tokenId, _amount);
+        emit TokenMinted(_tokenId, msg.sender, _amount);
     }
 
     function mint(address _tokenId, uint128 _amount) external payable {
@@ -164,7 +164,7 @@ contract CreatorToken {
         supplies[_tokenId] -= _amount;
         balances[msg.sender][_tokenId] -= _amount;
 
-        emit TokenBurned(msg.sender, _tokenId, _amount);
+        emit TokenBurned(_tokenId, msg.sender, _amount);
     }
 
     function burn(address _tokenId, uint128 _amount) external {
