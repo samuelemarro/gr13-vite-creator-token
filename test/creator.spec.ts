@@ -254,4 +254,59 @@ describe('test CreatorToken', function () {
             ).to.eventually.be.rejectedWith('revert');
         });
     });
+
+    describe('swap', function() {
+        it('swaps two tokens', async function() {
+            await deployer.sendToken(alice.address, '1000000');
+            await contract.call('createToken', ['154'], {caller: alice});
+
+            await deployer.sendToken(bob.address, '1000000');
+            await contract.call('createToken', ['32'], {caller: bob});
+
+            // Mint 27 Alice-tokens
+
+            // \int_0^27 154x dx = 56133
+            await contract.call('mint', [alice.address, 27], {caller: alice, token: "tti_564954455820434f494e69b5", value: 56133});
+            // (await contract.balance()).to.be.deep.equal(['56133']); // Disabled due to amount bug
+            // Alice's balance is now 1000000 - 56133 = 943867
+            // expect(await alice.balance()).to.be.deep.equal(['943867']); // Disabled due to amount bug
+
+            // Mint 89 Bob-tokens
+            // \int_0^89 32x dx = 126736
+            await contract.call('mint', [bob.address, 89], {caller: bob, token: "tti_564954455820434f494e69b5", value: 126736});
+            // Contract's balance is now 56133 + 126736 = 182869
+            // (await contract.balance()).to.be.deep.equal(['182869']); // Disabled due to amount bug
+            // Bob's balance is now 1000000 - 126736 = 873264
+            // expect(await bob.balance()).to.be.deep.equal(['873264']); // Disabled due to amount bug
+
+            // Swap 15 Alice-tokens for the equivalent amount of Bob-tokens
+            // \int_27^12 154x dx = -45045
+            // \int_89^t 32x dx = 45045 has solution t = 103.62
+            // Since the contract rounds down, the actual value is 103
+            // In other words, the contract will swap 15 Alice-tokens for (103-89 = 14) Bob-tokens
+            await contract.call('swap', [alice.address, bob.address, '15'], {caller: alice});
+
+            // 27 Alice-tokens - 15 = 12
+            expect(await contract.query('balanceOf', [alice.address, alice.address], {caller: alice})).to.be.deep.equal(['10012']);
+            expect(await contract.query('totalSupply', [alice.address], {caller: alice})).to.be.deep.equal(['10012']);
+            expect(await contract.query('tradableSupply', [alice.address], {caller: alice})).to.be.deep.equal(['12']);
+
+            // Alice now has 14 Bob-tokens
+            expect(await contract.query('balanceOf', [bob.address, alice.address], {caller: alice})).to.be.deep.equal(['14']);
+            // Bob's balance didn't change
+            expect(await contract.query('balanceOf', [bob.address, bob.address], {caller: bob})).to.be.deep.equal(['10089']);
+
+            // 89 Bob-tokens + 14 = 103
+            expect(await contract.query('totalSupply', [bob.address], {caller: bob})).to.be.deep.equal(['10103']);
+            expect(await contract.query('tradableSupply', [bob.address], {caller: bob})).to.be.deep.equal(['103']);
+
+            // 103 Bob-token are worth \int_89^103 32x dx = 43008
+            // In other words, Alice didn't receive enough Bob-tokens to cover the full swap amount
+            // The difference (45045 - 43008 = 2037) is refunded to Alice
+            // Contract's balance is now 182869 - 2037 = 180832
+            // expect(await contract.balance()).to.be.deep.equal(['180832']); // Disabled due to amount bug
+            // Alice's balance is now 943867 + 2037 = 945904
+            // expect(await alice.balance()).to.be.deep.equal(['945904']); // Disabled due to amount bug
+        });
+    });
 });
