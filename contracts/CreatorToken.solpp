@@ -74,6 +74,7 @@ contract CreatorToken {
     function createToken(uint128 coefficient) public {
         require(supplies[msg.sender] == 0, "CreatorToken: token already created");
         require(coefficient % 2 == 0, "CreatorToken: coefficient must be even");
+        require(coefficient > 0, "CreatorToken: coefficient must be greater than 0");
         supplies[msg.sender] = MINIMUM_SUPPLY;
         balances[msg.sender][msg.sender] = MINIMUM_SUPPLY;
         coefficients[msg.sender] = coefficient;
@@ -81,7 +82,7 @@ contract CreatorToken {
         emit TokenCreated(msg.sender);
     }
 
-    function transfer(address _to, address _tokenId, uint128 _amount) external {
+    function transfer(address _tokenId, address _to, uint128 _amount) external {
         require(_to != address(this), "CreatorToken: cannot transfer to self");
         require(_amount > 0);
         require(balanceOf(msg.sender, _tokenId) >= _amount);
@@ -133,7 +134,9 @@ contract CreatorToken {
 
         // Important: the revenue/cost should always be computed before executing the operation
         uint256 computedMintCost = _mintCost(_tokenId, _amount);
-        require(msg.value >= computedMintCost, "CreatorToken: not enough Vite to mint");
+        
+        // NOTE: Disabled to make the contract work with the hackathon
+        // require(msg.value >= computedMintCost, "CreatorToken: not enough Vite to mint");
 
         _mint(_tokenId, _amount);
 
@@ -175,7 +178,8 @@ contract CreatorToken {
         uint256 computedBurnRevenue = _burnRevenue(_tokenId, _amount);
         _burn(_tokenId, _amount);
 
-        payable(msg.sender).transfer("tti_5649544520544f4b454e6e40", computedBurnRevenue);
+        // NOTE: Disabled to make the contract work with the hackathon
+        // payable(msg.sender).transfer("tti_5649544520544f4b454e6e40", computedBurnRevenue);
     }
 
     // ===Swap Methods===
@@ -254,7 +258,7 @@ contract CreatorToken {
         //  2/coefficient * difference = new^2 - old^2
         // which is equivalent to
         //  new = sqrt(2/coefficient * difference - old^2)
-        uint256 newSupply = _sqrt((2 * _difference / coefficients[_tokenId]) - (tradableOldSupply * tradableOldSupply));
+        uint256 newSupply = _sqrt((2 * _difference / coefficients[_tokenId]) + (tradableOldSupply * tradableOldSupply));
         return uint128(newSupply + MINIMUM_SUPPLY);
     }
 
@@ -268,7 +272,8 @@ contract CreatorToken {
         uint256 computedBurnRevenue = _burnRevenue(_currentToken, _amount);
 
         // Note: _inverseIntegral rounds down
-        uint128 newTokenAmount = _inverseIntegral(_newToken, _totalSupply(_newToken), computedBurnRevenue);
+        uint128 newTokenSupply = _inverseIntegral(_newToken, _totalSupply(_newToken), computedBurnRevenue);
+        uint128 newTokenAmount = newTokenSupply - _totalSupply(_newToken);
         require(newTokenAmount <= _tradableSupply(_newToken), "CreatorToken: not enough tradable new tokens to swap");
 
         uint256 computedMintCost = _mintCost(_newToken, newTokenAmount);
@@ -281,7 +286,8 @@ contract CreatorToken {
         // _inverseIntegral rounds down, so we might have bought less than we sold. In that case, transfer the difference
         if (computedMintCost < computedBurnRevenue) {
             uint256 refund = computedBurnRevenue - computedMintCost;
-            payable(msg.sender).transfer("tti_5649544520544f4b454e6e40", refund);
+            // NOTE: Disabled to make the contract work with the hackathon
+            // payable(msg.sender).transfer("tti_5649544520544f4b454e6e40", refund);
         }
     }
 }
