@@ -183,9 +183,7 @@ contract CreatorToken {
 
     // ===Inverse Methods===
     /// @notice Calculates the inverse integral, rounding down.
-    function _inverseIntegral(address _tokenId, uint128 _oldSupply, int256 _difference) internal view returns(uint128) {
-        require(_oldSupply >= MINIMUM_SUPPLY);
-    
+    function _inverseIntegral(address _tokenId, uint128 _oldSupply, int256 _difference) internal view returns(uint128) {    
         uint256 tradableOldSupply = uint256(_oldSupply - MINIMUM_SUPPLY);
 
         // Integral of coefficient * tradableSupply is
@@ -298,7 +296,7 @@ contract CreatorToken {
     function _computeSwap(address _currentToken, address _newToken, uint128 _amount) internal view returns(uint128, uint256) {
         uint256 computedBurnRevenue = _burnRevenue(_currentToken, _amount);
 
-        // Note: _inverseIntegral rounds down
+        // Note: _mintAmount rounds down
         uint128 newTokenAmount = _mintAmount(_newToken, computedBurnRevenue);
         require(newTokenAmount <= _tradableSupply(_newToken), "CreatorToken: not enough tradable new tokens to swap");
 
@@ -306,7 +304,7 @@ contract CreatorToken {
         // Sanity check
         require(computedMintCost <= computedBurnRevenue, "CreatorToken: mint cost is greater than burn revenue");
 
-        // _inverseIntegral rounds down, so we might have bought less than we sold. In that case, transfer the difference
+        // _mintAmount rounds down, so we might have bought less than we sold. In that case, transfer the difference
         uint256 refund = computedBurnRevenue - computedMintCost;
 
         return (newTokenAmount, refund);
