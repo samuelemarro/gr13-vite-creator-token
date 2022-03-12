@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /// @title Creator Token implementation for GR13 Hackathon
 /// @author Samuele Marro
-/// @notice Uses linear bonding curves.
+/// @dev Uses linear bonding curves.
 
 pragma soliditypp ^0.8.0;
 
@@ -25,6 +25,8 @@ contract CreatorToken {
 
     // ===Getters===
 
+    /// @notice Returns true if a token exists
+    /// @param _tokenId The id of the token to check
     function exists(address _tokenId) public view returns (bool) {
         return supplies[_tokenId] > 0;
     }
@@ -33,6 +35,9 @@ contract CreatorToken {
         return balances[_owner][_tokenId];
     }
 
+    /// @notice Returns the amount of tokens owned by an address
+    /// @param _tokenId The id of the token
+    /// @param _owner The address to check
     function balanceOf(address _tokenId, address _owner) public view returns(uint128) {
         require(exists(_tokenId), "CreatorToken: token does not exist");
         return _balanceOf(_tokenId, _owner);
@@ -42,6 +47,8 @@ contract CreatorToken {
         return supplies[_tokenId];
     }
 
+    /// @notice Returns the total supply of a token
+    /// @param _tokenId The id of the token
     function totalSupply(address _tokenId) external view returns(uint128) {
         require(exists(_tokenId), "CreatorToken: token does not exist");
         return _totalSupply(_tokenId);
@@ -51,37 +58,53 @@ contract CreatorToken {
         return supplies[_tokenId] - MINIMUM_SUPPLY;
     }
 
+    /// @notice Returns the tradable supply of a token, i.e. the amount of tokens that can be burned
+    /// @param _tokenId The id of the token
     function tradableSupply(address _tokenId) external view returns(uint128) {
         require(exists(_tokenId), "CreatorToken: token does not exist");
         return _tradableSupply(_tokenId);
     }
 
-    function _tokenCoefficient(address tokenId) internal view returns(uint128) {
-        return coefficients[tokenId];
+    function _tokenCoefficient(address _tokenId) internal view returns(uint128) {
+        return coefficients[_tokenId];
     }
 
-    function tokenCoefficient(address tokenId) external view returns(uint128) {
-        require(exists(tokenId), "CreatorToken: token does not exist");
-        return _tokenCoefficient(tokenId);
+    /// @notice Returns the coefficient of the bonding curve for a token
+    ///
+    /// @param _tokenId The id of the token
+    function tokenCoefficient(address _tokenId) external view returns(uint128) {
+        require(exists(_tokenId), "CreatorToken: token does not exist");
+        return _tokenCoefficient(_tokenId);
     }
 
+    /// @notice Returns the current price of a token
+    /// @param _tokenId The id of the token
     function currentPrice(address _tokenId) external view returns(uint128) {
         return _tradableSupply(_tokenId) * _tokenCoefficient(_tokenId);
     }
 
     // ===Non-Sale Methods===
 
-    function createToken(uint128 coefficient) public {
+    /// @notice Creates a token for the caller's address
+    ///
+    /// @param _coefficient The id of the token to create
+    /// @notice The token is created with a supply of MINIMUM_SUPPLY    
+    function createToken(uint128 _coefficient) public {
         require(supplies[msg.sender] == 0, "CreatorToken: token already created");
-        require(coefficient % 2 == 0, "CreatorToken: coefficient must be even");
-        require(coefficient > 0, "CreatorToken: coefficient must be greater than 0");
+        require(_coefficient % 2 == 0, "CreatorToken: _coefficient must be even");
+        require(_coefficient > 0, "CreatorToken: _coefficient must be greater than 0");
         supplies[msg.sender] = MINIMUM_SUPPLY;
         balances[msg.sender][msg.sender] = MINIMUM_SUPPLY;
-        coefficients[msg.sender] = coefficient;
+        coefficients[msg.sender] = _coefficient;
 
         emit TokenCreated(msg.sender);
     }
 
+    /// @notice Transfers a certain amount of tokens to an address
+    ///
+    /// @param _tokenId The id of the token
+    /// @param _to The address to transfer to
+    /// @param _amount The amount of tokens to transfer
     function transfer(address _tokenId, address _to, uint128 _amount) external {
         require(_to != address(this), "CreatorToken: cannot transfer to self");
         require(_amount > 0);
@@ -94,7 +117,13 @@ contract CreatorToken {
 
     // ===Sale Methods===
 
-    /// Note: A positive returns value corresponds to a cost, a negative value corresponds to a revenue
+    /// @notice Returns the integral of the bonding curve
+    ///
+    /// @param _tokenId The id of the token
+    /// @param _oldSupply The old supply of the token
+    /// @param _newSupply The new supply of the token
+    ///
+    /// @dev A positive returns value corresponds to a cost, a negative value corresponds to a revenue
     function _computeIntegral(address _tokenId, uint128 _oldSupply, uint128 _newSupply) internal view returns(int256) {
         int256 tradableOldSupply = int256(uint256(_oldSupply - MINIMUM_SUPPLY));
         int256 tradableNewSupply = int256(uint256(_newSupply - MINIMUM_SUPPLY));
@@ -116,6 +145,9 @@ contract CreatorToken {
         return uint256(_computeIntegral(_tokenId, oldSupply, oldSupply + _amount));
     }
 
+    /// @notice Returns the cost of minting a certain amount of tokens
+    /// @param _tokenId The id of the token
+    /// @param _amount The amount of tokens to mint
     function mintCost(address _tokenId, uint128 _amount) external view returns(uint256) {
         require(exists(_tokenId), "CreatorToken: token does not exist");
         return _mintCost(_tokenId, _amount);
@@ -128,6 +160,10 @@ contract CreatorToken {
         emit TokenMinted(_tokenId, msg.sender, _amount);
     }
 
+    /// @notice Mints a certain amount of tokens
+    ///
+    /// @param _tokenId The id of the token
+    /// @param _amount The amount of tokens to mint
     function mint(address _tokenId, uint128 _amount) external payable {
         require(exists(_tokenId), "CreatorToken: token does not exist");
         require(_amount > 0, "CreatorToken: _amount must be greater than zero");
@@ -153,6 +189,10 @@ contract CreatorToken {
         return uint256(-_computeIntegral(_tokenId, oldSupply, oldSupply - _amount));
     }
 
+    /// @notice Returns the revenue of burning a certain amount of tokens
+    ///
+    /// @param _tokenId The id of the token
+    /// @param _amount The amount of tokens to burn
     function burnRevenue(address _tokenId, uint128 _amount) external view returns(uint256) {
         require(exists(_tokenId), "CreatorToken: token does not exist");
         require(_amount <= _tradableSupply(_tokenId), "CreatorToken: _amount must be less than or equal to tradable supply");
@@ -167,6 +207,10 @@ contract CreatorToken {
         emit TokenBurned(_tokenId, msg.sender, _amount);
     }
 
+    /// @notice Burns a certain amount of tokens
+    ///
+    /// @param _tokenId The id of the token
+    /// @param _amount The amount of tokens to burn
     function burn(address _tokenId, uint128 _amount) external {
         require(exists(_tokenId), "CreatorToken: token does not exist");
         require(_amount > 0, "CreatorToken: _amount must be greater than zero");
@@ -182,7 +226,13 @@ contract CreatorToken {
     }
 
     // ===Inverse Methods===
-    /// @notice Calculates the inverse integral, rounding down.
+
+    /// @notice Solves \int_old^t (coefficient * x) dx = difference for t
+    ///
+    /// @param _tokenId The id of the token
+    /// @param _oldSupply The old supply of the token
+    /// @param _difference The difference (i.e. cost or revenue)
+    /// @dev Rounds down.
     function _inverseIntegral(address _tokenId, uint128 _oldSupply, int256 _difference) internal view returns(uint128) {    
         uint256 tradableOldSupply = uint256(_oldSupply - MINIMUM_SUPPLY);
 
@@ -205,16 +255,21 @@ contract CreatorToken {
 
         uint128 newSupply = _inverseIntegral(_tokenId, oldSupply, -int256(_revenue));
 
-        require(newSupply >= MINIMUM_SUPPLY, "CreatorToken: burning would bring supply below minimum");
-
         return oldSupply - newSupply;
     }
 
-    /// @notice Reverts if burning such an amount would bring the supply below the minimum
+    /// @notice Returns the amount of tokens that would be burned if the given revenue was burned
+    ///
+    /// @param _tokenId The id of the token
+    /// @param _revenue The revenue that burning would bring
+    /// @dev Reverts if burning such an amount would bring the supply below the minimum
     function burnAmount(address _tokenId, uint256 _revenue) external view returns(uint128) {
         require(exists(_tokenId), "CreatorToken: token does not exist");
         // Note: does not check if _revenue is greater than 0
-        return _burnAmount(_tokenId, _revenue);
+
+        uint128 newSupply = _burnAmount(_tokenId, _revenue);
+
+        require(newSupply >= MINIMUM_SUPPLY, "CreatorToken: burning would bring supply below minimum");
     }
 
     function _mintAmount(address _tokenId, uint256 _cost) internal view returns(uint128) {
@@ -224,12 +279,15 @@ contract CreatorToken {
         return newSupply - oldSupply;
     }
 
+    /// @notice Returns the amount of tokens that would be minted if the given cost was paid
+    ///
+    /// @param _tokenId The id of the token
+    /// @param _cost The cost that minting would involve
     function mintAmount(address _tokenId, uint256 _cost) external view returns(uint128) {
         require(exists(_tokenId), "CreatorToken: token does not exist");
         // Note: does not check if _cost is greater than 0
         return _mintAmount(_tokenId, _cost);
     }
-
 
     // ===Swap Methods===
 
@@ -310,6 +368,13 @@ contract CreatorToken {
         return (newTokenAmount, refund);
     }
 
+    /// @notice Simulates a swap of the given amount of tokens from the current token to the new token
+    ///
+    /// @param _currentToken The id of the token to swap from
+    /// @param _newToken The id of the token to swap to
+    /// @param _amount The amount of tokens to swap
+    /// @return The amount of tokens that would be swapped
+    /// @return The eventual refund
     function simulateSwap(address _currentToken, address _newToken, uint128 _amount) external view returns(uint128, uint256) {
         require(exists(_currentToken), "CreatorToken: current token does not exist");
         require(exists(_newToken), "CreatorToken: new token does not exist");
@@ -318,6 +383,11 @@ contract CreatorToken {
         return _computeSwap(_currentToken, _newToken, _amount);
     }
 
+    /// @notice Swaps the given amount of tokens from the current token to the new token
+    ///
+    /// @param _currentToken The id of the token to swap from
+    /// @param _newToken The id of the token to swap to
+    /// @param _amount The amount of tokens to swap
     function swap(address _currentToken, address _newToken, uint128 _amount) external {
         require(exists(_currentToken), "CreatorToken: current token does not exist");
         require(exists(_newToken), "CreatorToken: new token does not exist");
