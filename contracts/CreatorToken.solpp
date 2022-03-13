@@ -11,6 +11,8 @@ contract CreatorToken {
     event TokenBurned(address indexed tokenId, address indexed owner, uint128 amount);
     event TokenTransferred(address indexed tokenId, address indexed from, address indexed to, uint128 amount);
 
+    vitetoken public constant VITE = "tti_5649544520544f4b454e6e40";
+
     // We use uint128 so that squares don't overflow in uint256 math
     mapping(address => uint128) private supplies;
     mapping(address => uint128) private coefficients;
@@ -172,14 +174,15 @@ contract CreatorToken {
         uint256 computedMintCost = _mintCost(_tokenId, _amount);
         
         // NOTE: Disabled to make the contract work with the hackathon
-        // require(msg.value >= computedMintCost, "CreatorToken: not enough Vite to mint");
+        require(msg.token == VITE, "CreatorToken: only VITE tokens can be used to mint");
+        require(msg.value >= computedMintCost, "CreatorToken: not enough Vite to mint");
 
         _mint(_tokenId, _amount);
 
         if (msg.value > computedMintCost) {
             // Minter overpaid (e.g. to handle slippage), send back the difference
             uint256 refund = msg.value - computedMintCost;
-            payable(msg.sender).transfer("tti_5649544520544f4b454e6e40", refund);
+            payable(msg.sender).transfer(VITE, refund);
         }
     }
 
@@ -222,7 +225,7 @@ contract CreatorToken {
         _burn(_tokenId, _amount);
 
         // NOTE: Disabled to make the contract work with the hackathon
-        // payable(msg.sender).transfer("tti_5649544520544f4b454e6e40", computedBurnRevenue);
+        payable(msg.sender).transfer(VITE, computedBurnRevenue);
     }
 
     // ===Inverse Methods===
@@ -263,6 +266,7 @@ contract CreatorToken {
     /// @param _tokenId The id of the token
     /// @param _revenue The revenue that burning would bring
     /// @dev Reverts if burning such an amount would bring the supply below the minimum
+    /// @dev Depending on the parameters, might either round up or down
     function burnAmount(address _tokenId, uint256 _revenue) external view returns(uint128) {
         require(exists(_tokenId), "CreatorToken: token does not exist");
         // Note: does not check if _revenue is greater than 0
@@ -270,6 +274,8 @@ contract CreatorToken {
         uint128 newSupply = _burnAmount(_tokenId, _revenue);
 
         require(newSupply >= MINIMUM_SUPPLY, "CreatorToken: burning would bring supply below minimum");
+
+        return newSupply;
     }
 
     function _mintAmount(address _tokenId, uint256 _cost) internal view returns(uint128) {
@@ -405,7 +411,7 @@ contract CreatorToken {
 
         if (refund > 0) {
             // NOTE: Disabled to make the contract work with the hackathon
-            // payable(msg.sender).transfer("tti_5649544520544f4b454e6e40", refund);
+            payable(msg.sender).transfer(VITE, refund);
         }
     }
 }

@@ -106,15 +106,16 @@ describe('test CreatorToken', function () {
     });
 
     describe('mint', function() {
-        it('mints a token', async function() {
+        it.only('mints a token', async function() {
             await deployer.sendToken(alice.address, '1000000');
+            await alice.receiveAll();
             await contract.call('createToken', [154], {caller: alice});
             // Mint 27 tokens
             // \int_0^27 154x dx = 56133
-            await contract.call('mint', [alice.address, 27], {caller: alice, token: "tti_564954455820434f494e69b5", value: 56133});
-            // (await contract.balance()).to.be.deep.equal(['56133']); // Disabled due to amount bug
+            await contract.call('mint', [alice.address, 27], {caller: alice, amount: '56133'});
+            expect(await contract.balance()).to.be.deep.equal('56133');
             // 1000000 - 56133 = 943867
-            // expect(await alice.balance()).to.be.deep.equal(['943867']); // Disabled due to amount bug
+            expect(await alice.balance()).to.be.deep.equal('943867');
 
             expect(await contract.query('balanceOf', [alice.address, alice.address], {caller: alice})).to.be.deep.equal(['10027']);
             expect(await contract.query('totalSupply', [alice.address], {caller: alice})).to.be.deep.equal(['10027']);
@@ -133,15 +134,17 @@ describe('test CreatorToken', function () {
             ]);
         });
 
-        it('mints a token twice', async function() {
+        it.only('mints a token twice', async function() {
             await deployer.sendToken(alice.address, '1000000');
+            await alice.receiveAll();
+            expect(await alice.balance()).to.be.deep.equal('1000000')
             await contract.call('createToken', [154], {caller: alice});
             // Mint 27 tokens
             // \int_0^27 154x dx = 56133
-            await contract.call('mint', [alice.address, 27], {caller: alice, token: "tti_564954455820434f494e69b5", value: 56133});
-            // expect(await contract.balance()).to.be.deep.equal(['56133']); // Disabled due to amount bug
+            await contract.call('mint', [alice.address, 27], {caller: alice, amount: '56133'});
+            expect(await contract.balance()).to.be.deep.equal('56133');
             // 1000000 - 56133 = 943867
-            // expect(await alice.balance()).to.be.deep.equal(['943867']); // Disabled due to amount bug
+            expect(await alice.balance()).to.be.deep.equal('943867');
 
             expect(await contract.query('balanceOf', [alice.address, alice.address], {caller: alice})).to.be.deep.equal(['10027']);
             expect(await contract.query('totalSupply', [alice.address], {caller: alice})).to.be.deep.equal(['10027']);
@@ -151,11 +154,11 @@ describe('test CreatorToken', function () {
 
             // Mint 10 tokens
             // \int_27^37 154x dx = 49280
-            await contract.call('mint', [alice.address, 10], {caller: alice, value: '49280'});
+            await contract.call('mint', [alice.address, 10], {caller: alice, amount: '49280'});
             // 56133 + 49280 = 105413
-            // expect(await contract.balance()).to.be.deep.equal(['105413']); // Disabled due to amount bug
+            expect(await contract.balance()).to.be.deep.equal('105413');
             // 1000000 - 105413 = 894587
-            // expect(await alice.balance()).to.be.deep.equal(['894587']); // Disabled due to amount bug
+            expect(await alice.balance()).to.be.deep.equal('894587');
 
             expect(await contract.query('balanceOf', [alice.address, alice.address], {caller: alice})).to.be.deep.equal(['10037']);
             expect(await contract.query('totalSupply', [alice.address], {caller: alice})).to.be.deep.equal(['10037']);
@@ -188,7 +191,7 @@ describe('test CreatorToken', function () {
         it('fails to mint 0 tokens', async function() {
             await contract.call('createToken', ['154'], {caller: alice});
             await expect(
-                contract.call('mint', [alice.address, 0], {caller: alice, value: '56133'})
+                contract.call('mint', [alice.address, 0], {caller: alice, amount: '56133'})
             ).to.eventually.be.rejectedWith('revert');
         });
 
@@ -198,13 +201,13 @@ describe('test CreatorToken', function () {
             // Mint 27 tokens
             // \int_0^27 154x dx = 56133
             // We're gonna pay 56135
-            await contract.call('mint', [alice.address, 27], {caller: alice, value: '56135'});
+            await contract.call('mint', [alice.address, 27], {caller: alice, amount: '56135'});
             
             // Overpaying should not change anything
 
-            // (await contract.balance()).to.be.deep.equal(['56133']); // Disabled due to amount bug
+            expect(await contract.balance()).to.be.deep.equal('56133');
             // 1000000 - 56133 = 943867
-            // expect(await alice.balance()).to.be.deep.equal(['943867']); // Disabled due to amount bug
+            expect(await alice.balance()).to.be.deep.equal('943867');
 
             expect(await contract.query('balanceOf', [alice.address, alice.address], {caller: alice})).to.be.deep.equal(['10027']);
             expect(await contract.query('totalSupply', [alice.address], {caller: alice})).to.be.deep.equal(['10027']);
@@ -221,7 +224,7 @@ describe('test CreatorToken', function () {
             // We're gonna pay 56132
 
             await expect(
-                contract.call('mint', [alice.address, 0], {caller: alice, value: '56132'})
+                contract.call('mint', [alice.address, 0], {caller: alice, amount: '56132'})
             ).to.eventually.be.rejectedWith('revert');
         });
     });
@@ -232,19 +235,19 @@ describe('test CreatorToken', function () {
             await contract.call('createToken', ['154'], {caller: alice});
 
             // \int_0^27 154x dx = 56133
-            await contract.call('mint', [alice.address, 27], {caller: alice, value: '56133'});
-            // expect(await contract.balance()).to.be.deep.equal(['56133']); // Disabled due to amount bug
+            await contract.call('mint', [alice.address, 27], {caller: alice, amount: '56133'});
+            expect(await contract.balance()).to.be.deep.equal('56133');
             // 1000000 - 56133 = 943867
-            // expect(await alice.balance()).to.be.deep.equal(['943867']); // Disabled due to amount bug
+            expect(await alice.balance()).to.be.deep.equal('943867');
             
             await contract.call('burn', [alice.address, '2'], {caller: alice});
 
             // \int_27^25 154x dx = -8008
             // 56133 - 8008 = 48125
-            // expect(await contract.balance()).to.be.deep.equal(['48125']); // Disabled due to amount bug
+            expect(await contract.balance()).to.be.deep.equal('48125');
         
             // 943867 + 8008 = 951875
-            // expect(await alice.balance()).to.be.deep.equal(['951875']); // Disabled due to amount bug
+            expect(await alice.balance()).to.be.deep.equal('951875');
 
             expect(await contract.query('balanceOf', [alice.address, alice.address], {caller: alice})).to.be.deep.equal(['10025']);
             expect(await contract.query('totalSupply', [alice.address], {caller: alice})).to.be.deep.equal(['10025']);
@@ -274,19 +277,19 @@ describe('test CreatorToken', function () {
             await contract.call('createToken', ['154'], {caller: alice});
 
             // \int_0^27 154x dx = 56133
-            await contract.call('mint', [alice.address, 27], {caller: alice, value: '56133'});
-            // expect(await contract.balance()).to.be.deep.equal(['56133']); // Disabled due to amount bug
+            await contract.call('mint', [alice.address, 27], {caller: alice, amount: '56133'});
+            expect(await contract.balance()).to.be.deep.equal('56133');
             // 1000000 - 56133 = 943867
-            // expect(await alice.balance()).to.be.deep.equal(['943867']); // Disabled due to amount bug
+            expect(await alice.balance()).to.be.deep.equal('943867');
             
             await contract.call('burn', [alice.address, '2'], {caller: alice});
 
             // \int_27^25 154x dx = -8008
             // 56133 - 8008 = 48125
-            // expect(await contract.balance()).to.be.deep.equal(['48125']); // Disabled due to amount bug
+            expect(await contract.balance()).to.be.deep.equal('48125');
         
             // 943867 + 8008 = 951875
-            // expect(await alice.balance()).to.be.deep.equal(['951875']); // Disabled due to amount bug
+            expect(await alice.balance()).to.be.deep.equal('951875');
 
             expect(await contract.query('balanceOf', [alice.address, alice.address], {caller: alice})).to.be.deep.equal(['10025']);
             expect(await contract.query('totalSupply', [alice.address], {caller: alice})).to.be.deep.equal(['10025']);
@@ -300,10 +303,10 @@ describe('test CreatorToken', function () {
 
             // \int_25^0 154x dx = -48125
             // 48125 - 48125 = 0
-            // expect(await contract.balance()).to.be.deep.equal(['0']); // Disabled due to amount bug
+            expect(await contract.balance()).to.be.deep.equal('0');
 
             // 951875 + 48125 = 1000000
-            // expect(await alice.balance()).to.be.deep.equal(['1000000']); // Disabled due to amount bug
+            expect(await alice.balance()).to.be.deep.equal('1000000');
         });
 
         it('fails to burn a non-existent token', async function() {
@@ -328,7 +331,7 @@ describe('test CreatorToken', function () {
     });
 
     describe('swap', function() {
-        it.only('swaps two tokens', async function() {
+        it('swaps two tokens', async function() {
             await deployer.sendToken(alice.address, '1000000');
             await contract.call('createToken', ['154'], {caller: alice});
 
@@ -337,18 +340,18 @@ describe('test CreatorToken', function () {
 
             // Mint 27 Alice-tokens
             // \int_0^27 154x dx = 56133
-            await contract.call('mint', [alice.address, 27], {caller: alice, token: "tti_564954455820434f494e69b5", value: 56133});
-            // (await contract.balance()).to.be.deep.equal(['56133']); // Disabled due to amount bug
+            await contract.call('mint', [alice.address, 27], {caller: alice, amount: '56133'});
+            expect(await contract.balance()).to.be.deep.equal('56133');
             // Alice's balance is now 1000000 - 56133 = 943867
-            // expect(await alice.balance()).to.be.deep.equal(['943867']); // Disabled due to amount bug
+            expect(await alice.balance()).to.be.deep.equal('943867');
 
             // Mint 89 Bob-tokens
             // \int_0^89 32x dx = 126736
-            await contract.call('mint', [bob.address, 89], {caller: bob, token: "tti_564954455820434f494e69b5", value: 126736});
+            await contract.call('mint', [bob.address, 89], {caller: bob, amount: '126736'});
             // Contract's balance is now 56133 + 126736 = 182869
-            // (await contract.balance()).to.be.deep.equal(['182869']); // Disabled due to amount bug
+            expect(await contract.balance()).to.be.deep.equal('182869');
             // Bob's balance is now 1000000 - 126736 = 873264
-            // expect(await bob.balance()).to.be.deep.equal(['873264']); // Disabled due to amount bug
+            expect(await bob.balance()).to.be.deep.equal('873264');
 
             // Swap 15 Alice-tokens for the equivalent amount of Bob-tokens
             // \int_27^12 154x dx = -45045
@@ -375,9 +378,9 @@ describe('test CreatorToken', function () {
             // In other words, Alice didn't receive enough Bob-tokens to cover the full swap amount
             // The difference (45045 - 43008 = 2037) is refunded to Alice
             // Contract's balance is now 182869 - 2037 = 180832
-            // expect(await contract.balance()).to.be.deep.equal(['180832']); // Disabled due to amount bug
+            expect(await contract.balance()).to.be.deep.equal('180832');
             // Alice's balance is now 943867 + 2037 = 945904
-            // expect(await alice.balance()).to.be.deep.equal(['945904']); // Disabled due to amount bug
+            expect(await alice.balance()).to.be.deep.equal('945904');
 
             const events = await contract.getPastEvents('allEvents', {fromHeight: 0, toHeight: 100});
             checkEvents(events, [
@@ -414,7 +417,7 @@ describe('test CreatorToken', function () {
 
             // Mint 89 Bob-tokens
             // \int_0^89 32x dx = 126736
-            await contract.call('mint', [bob.address, 89], {caller: bob, value: 126736});
+            await contract.call('mint', [bob.address, 89], {caller: bob, amount: '126736'});
 
             await expect(
                 contract.call('swap', [alice.address, bob.address, '15'], {caller: alice})
@@ -429,7 +432,7 @@ describe('test CreatorToken', function () {
 
             // Mint 27 Alice-tokens
             // \int_0^27 154x dx = 56133
-            await contract.call('mint', [alice.address, 27], {caller: alice, value: 56133});
+            await contract.call('mint', [alice.address, 27], {caller: alice, amount: '56133'});
 
             await expect(
                 contract.call('swap', [alice.address, bob.address, '15'], {caller: alice})
@@ -447,11 +450,11 @@ describe('test CreatorToken', function () {
 
             // Mint 27 Alice-tokens
             // \int_0^27 154x dx = 56133
-            await contract.call('mint', [alice.address, 27], {caller: alice, value: 56133});
+            await contract.call('mint', [alice.address, 27], {caller: alice, amount: '56133'});
 
             // Mint 89 Bob-tokens
             // \int_0^89 32x dx = 126736
-            await contract.call('mint', [bob.address, 89], {caller: bob, value: 126736});
+            await contract.call('mint', [bob.address, 89], {caller: bob, amount: '126736'});
 
             await expect(
                 contract.call('swap', [alice.address, bob.address, '0'], {caller: alice})
@@ -469,11 +472,11 @@ describe('test CreatorToken', function () {
 
             // Mint 27 Alice-tokens
             // \int_0^27 154x dx = 56133
-            await contract.call('mint', [alice.address, 27], {caller: alice, value: 56133});
+            await contract.call('mint', [alice.address, 27], {caller: alice, amount: '56133'});
 
             // Mint 89 Bob-tokens
             // \int_0^89 32x dx = 126736
-            await contract.call('mint', [bob.address, 89], {caller: bob, value: 126736});
+            await contract.call('mint', [bob.address, 89], {caller: bob, amount: '126736'});
 
             // Only 154 Alice-tokens are tradable
             await expect(
@@ -495,11 +498,11 @@ describe('test CreatorToken', function () {
 
             // Mint 27 Alice-tokens
             // \int_0^27 154x dx = 56133
-            await contract.call('mint', [alice.address, 27], {caller: alice, value: 56133});
+            await contract.call('mint', [alice.address, 27], {caller: alice, amount: '56133'});
 
             // Mint 89 Bob-tokens
             // \int_0^89 32x dx = 126736
-            await contract.call('mint', [bob.address, 89], {caller: bob, value: 126736});
+            await contract.call('mint', [bob.address, 89], {caller: bob, amount: '126736'});
 
             // Alice only has 27 Alice-tokens
             await expect(
@@ -518,18 +521,18 @@ describe('test CreatorToken', function () {
 
             // Mint 27 Alice-tokens
             // \int_0^27 154x dx = 56133
-            await contract.call('mint', [alice.address, 27], {caller: alice, token: "tti_564954455820434f494e69b5", amount: 56133});
-            // expect(await contract.balance()).to.be.deep.equal(['56133']); // Disabled due to amount bug
+            await contract.call('mint', [alice.address, 27], {caller: alice, amount: '56133'});
+            expect(await contract.balance()).to.be.deep.equal('56133');
             // Alice's balance is now 1000000 - 56133 = 943867
-            // expect(await alice.balance()).to.be.deep.equal(['943867']); // Disabled due to amount bug
+            expect(await alice.balance()).to.be.deep.equal('943867');
 
             // Mint 89 Bob-tokens
             // \int_0^89 32x dx = 126736
-            await contract.call('mint', [bob.address, 89], {caller: bob, token: "tti_564954455820434f494e69b5", value: 126736});
+            await contract.call('mint', [bob.address, 89], {caller: bob, amount: '126736'});
             // Contract's balance is now 56133 + 126736 = 182869
-            // (await contract.balance()).to.be.deep.equal(['182869']); // Disabled due to amount bug
+            expect(await contract.balance()).to.be.deep.equal('182869');
             // Bob's balance is now 1000000 - 126736 = 873264
-            // expect(await bob.balance()).to.be.deep.equal(['873264']); // Disabled due to amount bug
+            expect(await bob.balance()).to.be.deep.equal('873264');
 
             // Swap 15 Alice-tokens for the equivalent amount of Bob-tokens
             // \int_27^12 154x dx = -45045
@@ -550,7 +553,7 @@ describe('test CreatorToken', function () {
 
             // Mint 89 Bob-tokens
             // \int_0^89 32x dx = 126736
-            await contract.call('mint', [bob.address, 89], {caller: bob, value: 126736});
+            await contract.call('mint', [bob.address, 89], {caller: bob, amount: '126736'});
 
             await expect(
                 contract.call('simulateSwap', [alice.address, bob.address, '15'], {caller: alice})
@@ -565,7 +568,7 @@ describe('test CreatorToken', function () {
 
             // Mint 27 Alice-tokens
             // \int_0^27 154x dx = 56133
-            await contract.call('mint', [alice.address, 27], {caller: alice, value: 56133});
+            await contract.call('mint', [alice.address, 27], {caller: alice, amount: '56133'});
 
             await expect(
                 contract.call('simulateSwap', [alice.address, bob.address, '15'], {caller: alice})
@@ -583,11 +586,11 @@ describe('test CreatorToken', function () {
 
             // Mint 27 Alice-tokens
             // \int_0^27 154x dx = 56133
-            await contract.call('mint', [alice.address, 27], {caller: alice, value: 56133});
+            await contract.call('mint', [alice.address, 27], {caller: alice, amount: '56133'});
 
             // Mint 89 Bob-tokens
             // \int_0^89 32x dx = 126736
-            await contract.call('mint', [bob.address, 89], {caller: bob, value: 126736});
+            await contract.call('mint', [bob.address, 89], {caller: bob, amount: '126736'});
 
             // Only 154 Alice-tokens are tradable
             await expect(
@@ -636,7 +639,7 @@ describe('test CreatorToken', function () {
             await contract.call('createToken', [154], {caller: alice});
 
             // \int_0^27 154x dx = 56133
-            await contract.call('mint', [alice.address, 27], {caller: alice, value: 56133});
+            await contract.call('mint', [alice.address, 27], {caller: alice, amount: '56133'});
 
             // \int_27^25 154x dx = -8008
             expect(await contract.query('burnRevenue', [alice.address, 2], {caller: alice})).to.be.deep.equal(['8008']);
@@ -653,7 +656,7 @@ describe('test CreatorToken', function () {
             await contract.call('createToken', ['154'], {caller: alice});
 
             // \int_0^27 154x dx = 56133
-            await contract.call('mint', [alice.address, 27], {caller: alice, value: '56133'});
+            await contract.call('mint', [alice.address, 27], {caller: alice, amount: '56133'});
 
             // \int_27^0 154x dx = -56133
             // We will use 28
@@ -669,7 +672,7 @@ describe('test CreatorToken', function () {
             await contract.call('createToken', [154], {caller: alice});
 
             // \int_0^27 154x dx = 56133
-            await contract.call('mint', [alice.address, 27], {caller: alice, value: 56133});
+            await contract.call('mint', [alice.address, 27], {caller: alice, amount: '56133'});
 
             // \int_27^25 154x dx = -8008
             expect(await contract.query('burnAmount', [alice.address, 8008], {caller: alice})).to.be.deep.equal(['2']);
@@ -686,7 +689,7 @@ describe('test CreatorToken', function () {
             await contract.call('createToken', ['154'], {caller: alice});
 
             // \int_0^27 154x dx = 56133
-            await contract.call('mint', [alice.address, 27], {caller: alice, value: '56133'});
+            await contract.call('mint', [alice.address, 27], {caller: alice, amount: '56133'});
 
             // \int_27^0 154x dx = -56133
             // \int_28^0 154x = -60368
