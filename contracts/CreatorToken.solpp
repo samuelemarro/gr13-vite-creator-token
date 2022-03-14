@@ -15,23 +15,22 @@ contract CreatorToken {
 
     // We use uint128 so that squares don't overflow in uint256 math
     mapping(address => uint128) private supplies;
-    mapping(address => uint128) private coefficients;
+
+    uint128 public coefficient;
     // owner => (tokenId => amount) mapping
     mapping(address => mapping(address => uint128)) private balances;
 
     // Note: must be greater than 0
-    uint128 public constant MINIMUM_SUPPLY = 1e4;
+    uint128 public minimumSupply = 1e4;
 
-    constructor () {
+    constructor (uint128 _minimumSupply, uint128 _coefficient) {
+        require(_minimumSupply > 0, "_minimumSupply must be greater than 0");
+        require(_coefficient > 0, "_coefficient must be greater than 0");
+        minimumSupply = _minimumSupply;
+        coefficient = _coefficient;
     }
 
     // ===Getters===
-
-    /// @notice Returns true if a token exists
-    /// @param _tokenId The id of the token to check
-    function exists(address _tokenId) public view returns (bool) {
-        return supplies[_tokenId] > 0;
-    }
 
     function _balanceOf(address _tokenId, address _owner) internal view returns (uint128) {
         return balances[_owner][_tokenId];
@@ -57,7 +56,7 @@ contract CreatorToken {
     }
 
     function _tradableSupply(address _tokenId) internal view returns(uint128) {
-        return supplies[_tokenId] - MINIMUM_SUPPLY;
+        return supplies[_tokenId] - minimumSupply;
     }
 
     /// @notice Returns the tradable supply of a token, i.e. the amount of tokens that can be burned
@@ -67,40 +66,13 @@ contract CreatorToken {
         return _tradableSupply(_tokenId);
     }
 
-    function _tokenCoefficient(address _tokenId) internal view returns(uint128) {
-        return coefficients[_tokenId];
-    }
-
-    /// @notice Returns the coefficient of the bonding curve for a token
-    ///
-    /// @param _tokenId The id of the token
-    function tokenCoefficient(address _tokenId) external view returns(uint128) {
-        require(exists(_tokenId), "CreatorToken: token does not exist");
-        return _tokenCoefficient(_tokenId);
-    }
-
     /// @notice Returns the current price of a token
     /// @param _tokenId The id of the token
     function currentPrice(address _tokenId) external view returns(uint128) {
-        return _tradableSupply(_tokenId) * _tokenCoefficient(_tokenId);
+        return _tradableSupply(_tokenId) * coefficient;
     }
 
     // ===Non-Sale Methods===
-
-    /// @notice Creates a token for the caller's address
-    ///
-    /// @param _coefficient The id of the token to create
-    /// @notice The token is created with a supply of MINIMUM_SUPPLY    
-    function createToken(uint128 _coefficient) public {
-        require(supplies[msg.sender] == 0, "CreatorToken: token already created");
-        require(_coefficient % 2 == 0, "CreatorToken: _coefficient must be even");
-        require(_coefficient > 0, "CreatorToken: _coefficient must be greater than 0");
-        supplies[msg.sender] = MINIMUM_SUPPLY;
-        balances[msg.sender][msg.sender] = MINIMUM_SUPPLY;
-        coefficients[msg.sender] = _coefficient;
-
-        emit TokenCreated(msg.sender);
-    }
 
     /// @notice Transfers a certain amount of tokens to an address
     ///
@@ -121,14 +93,13 @@ contract CreatorToken {
 
     /// @notice Returns the integral of the bonding curve
     ///
-    /// @param _tokenId The id of the token
     /// @param _oldSupply The old supply of the token
     /// @param _newSupply The new supply of the token
     ///
     /// @dev A positive returns value corresponds to a cost, a negative value corresponds to a revenue
-    function _computeIntegral(address _tokenId, uint128 _oldSupply, uint128 _newSupply) internal view returns(int256) {
-        int256 tradableOldSupply = int256(uint256(_oldSupply - MINIMUM_SUPPLY));
-        int256 tradableNewSupply = int256(uint256(_newSupply - MINIMUM_SUPPLY));
+    function _computeIntegral(uint128 _oldSupply, uint128 _newSupply) internal view returns(int256) {
+        int256 tradableOldSupply = int256(uint256(_oldSupply - minimumSupply));
+        int256 tradableNewSupply = int256(uint256(_newSupply - minimumSupply));
 
         // Integral of coefficient * tradableSupply is
         //  coefficient * x^2 / 2
@@ -136,7 +107,7 @@ contract CreatorToken {
         //   coefficient * (new^2 - old^2) / 2
         // Note: the division does not require rounding because the coefficient
         // is always even
-        return int256(uint256(_tokenCoefficient(_tokenId))) * (
+        return int256(uint256(coefficient)) * (
             tradableNewSupply * tradableNewSupply - tradableOldSupply * tradableOldSupply
         ) / 2;
     }
@@ -144,7 +115,7 @@ contract CreatorToken {
     function _mintCost(address _tokenId, uint128 _amount) internal view returns(uint256) {
         uint128 oldSupply = supplies[_tokenId];
 
-        return uint256(_computeIntegral(_tokenId, oldSupply, oldSupply + _amount));
+        return uint256(_computeIntegral(oldSupply, oldSupply + _amount));
     }
 
     /// @notice Returns the cost of minting a certain amount of tokens
@@ -172,8 +143,7 @@ contract CreatorToken {
 
         // Important: the revenue/cost should always be computed before executing the operation
         uint256 computedMintCost = _mintCost(_tokenId, _amount);
-        
-        // NOTE: Disabled to make the contract work with the hackathon
+
         require(msg.token == VITE, "CreatorToken: only VITE tokens can be used to mint");
         require(msg.value >= computedMintCost, "CreatorToken: not enough Vite to mint");
 
@@ -189,7 +159,7 @@ contract CreatorToken {
     function _burnRevenue(address _tokenId, uint128 _amount) internal view returns(uint256) {
         uint128 oldSupply = _totalSupply(_tokenId);
 
-        return uint256(-_computeIntegral(_tokenId, oldSupply, oldSupply - _amount));
+        return uint256(-_computeIntegral(oldSupply, oldSupply - _amount));
     }
 
     /// @notice Returns the revenue of burning a certain amount of tokens
@@ -224,7 +194,6 @@ contract CreatorToken {
         uint256 computedBurnRevenue = _burnRevenue(_tokenId, _amount);
         _burn(_tokenId, _amount);
 
-        // NOTE: Disabled to make the contract work with the hackathon
         payable(msg.sender).transfer(VITE, computedBurnRevenue);
     }
 
@@ -232,12 +201,11 @@ contract CreatorToken {
 
     /// @notice Solves \int_old^t (coefficient * x) dx = difference for t
     ///
-    /// @param _tokenId The id of the token
     /// @param _oldSupply The old supply of the token
     /// @param _difference The difference (i.e. cost or revenue)
     /// @dev Rounds down.
-    function _inverseIntegral(address _tokenId, uint128 _oldSupply, int256 _difference) internal view returns(uint128) {    
-        uint256 tradableOldSupply = uint256(_oldSupply - MINIMUM_SUPPLY);
+    function _inverseIntegral(uint128 _oldSupply, int256 _difference) internal view returns(uint128) {    
+        uint256 tradableOldSupply = uint256(_oldSupply - minimumSupply);
 
         // Integral of coefficient * tradableSupply is
         //  coefficient * (tradableSupply^2) / 2
@@ -248,15 +216,15 @@ contract CreatorToken {
         // which is equivalent to
         //  new = sqrt(2/coefficient * difference - old^2)
         uint256 newSupply = _sqrt(
-            uint256((2 * _difference / int256(uint256(coefficients[_tokenId]))) + int256(tradableOldSupply * tradableOldSupply))
+            uint256((2 * _difference / int256(uint256(coefficient))) + int256(tradableOldSupply * tradableOldSupply))
         );
-        return uint128(newSupply + MINIMUM_SUPPLY);
+        return uint128(newSupply + minimumSupply);
     }
 
     function _burnAmount(address _tokenId, uint256 _revenue) internal view returns(uint128) {
         uint128 oldSupply = _totalSupply(_tokenId);
 
-        uint128 newSupply = _inverseIntegral(_tokenId, oldSupply, -int256(_revenue));
+        uint128 newSupply = _inverseIntegral(oldSupply, -int256(_revenue));
 
         return oldSupply - newSupply;
     }
@@ -281,7 +249,7 @@ contract CreatorToken {
     function _mintAmount(address _tokenId, uint256 _cost) internal view returns(uint128) {
         uint128 oldSupply = _totalSupply(_tokenId);
 
-        uint128 newSupply = _inverseIntegral(_tokenId, oldSupply, int256(_cost));
+        uint128 newSupply = _inverseIntegral(oldSupply, int256(_cost));
         return newSupply - oldSupply;
     }
 
@@ -410,7 +378,6 @@ contract CreatorToken {
         _mint(_newToken, newTokenAmount);
 
         if (refund > 0) {
-            // NOTE: Disabled to make the contract work with the hackathon
             payable(msg.sender).transfer(VITE, refund);
         }
     }
