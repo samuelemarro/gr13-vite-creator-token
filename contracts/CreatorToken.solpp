@@ -271,11 +271,11 @@ contract CreatorToken {
         require(exists(_tokenId), "CreatorToken: token does not exist");
         // Note: does not check if _revenue is greater than 0
 
-        uint128 newSupply = _burnAmount(_tokenId, _revenue);
+        uint128 computedBurnAmount = _burnAmount(_tokenId, _revenue);
 
-        require(newSupply >= MINIMUM_SUPPLY, "CreatorToken: burning would bring supply below minimum");
+        require(computedBurnAmount <= _tradableSupply(_tokenId), "CreatorToken: burning would bring supply below minimum");
 
-        return newSupply;
+        return computedBurnAmount;
     }
 
     function _mintAmount(address _tokenId, uint256 _cost) internal view returns(uint128) {
