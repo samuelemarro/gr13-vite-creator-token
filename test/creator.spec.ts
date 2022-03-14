@@ -25,21 +25,16 @@ const checkEvents = (result : any, correct : Array<Object>) => {
 }
 
 describe('test CreatorToken', function () {
-    before(async function() {
+    beforeEach(async function () {
         provider = vite.localProvider();
         deployer = vite.newAccount(config.networks.local.mnemonic, 0);
-    })
-    beforeEach(async function () {
         // init users
         alice = vite.newAccount(config.networks.local.mnemonic, mnemonicCounter++);
         bob = vite.newAccount(config.networks.local.mnemonic, mnemonicCounter++);
-        charlie = vite.newAccount(config.networks.local.mnemonic, mnemonicCounter++);
         await deployer.sendToken(alice.address, '0');
         await alice.receiveAll();
         await deployer.sendToken(bob.address, '0');
         await bob.receiveAll();
-        await deployer.sendToken(charlie.address, '0');
-        await charlie.receiveAll();
         // compile
         const compiledContracts = await vite.compile('CreatorToken.solpp',);
         expect(compiledContracts).to.have.property('CreatorToken');
@@ -529,8 +524,11 @@ describe('test CreatorToken', function () {
 
         it('fails to swap more tokens than the balance', async function() {
             await deployer.sendToken(alice.address, '1000000');
+            await alice.receiveAll();
 
             await deployer.sendToken(bob.address, '1000000');
+            await bob.receiveAll();
+
             await contract.call('createToken', ['154'], {caller: alice});
 
             await deployer.sendToken(bob.address, '1000000');
