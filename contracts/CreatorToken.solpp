@@ -39,7 +39,7 @@ contract CreatorToken {
     //       initial supply; in practice, it gets added during the owner's first mint, transfer, burn or swap.
     function _balanceOf(address _tokenId, address _owner) internal view returns (uint128) {
         if (_tokenId != _owner || ownerCollectedSupply[_owner]) {
-            return _balanceOf(_tokenId, _owner);
+            return balances[_owner][_tokenId];
         } else {
             return minimumSupply;
         }
