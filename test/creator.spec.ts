@@ -519,35 +519,17 @@ describe('test CreatorToken', function () {
 
     describe('mintCost', function() {
         it('computes the cost of a mint', async function () {
-            await contract.call('createToken', [154], {caller: alice});
             // Mint 27 tokens
             // \int_0^27 154x dx = 56133
             expect(await contract.query('mintCost', [alice.address, 27], {caller: alice})).to.be.deep.equal(['56133']);
-        });
-
-        it('fails to compute the cost of a mint of a non-existent token', async function () {
-            // Mint 27 tokens
-            // \int_0^27 154x dx = 56133
-            await expect(
-                contract.call('mintCost', [alice.address, 27], {caller: alice})
-            ).to.eventually.be.rejectedWith('revert');
         });
     });
 
     describe('mintAmount', function() {
         it('computes the mint amount', async function () {
-            await contract.call('createToken', [154], {caller: alice});
             // Mint 27 tokens
             // \int_0^27 154x dx = 56133
             expect(await contract.query('mintAmount', [alice.address, 56133], {caller: alice})).to.be.deep.equal(['27']);
-        });
-
-        it('fails to compute the mint amount of a non-existent token', async function () {
-            // Mint 27 tokens
-            // \int_0^27 154x dx = 56133
-            await expect(
-                contract.call('mintAmount', [alice.address, 56133], {caller: alice})
-            ).to.eventually.be.rejectedWith('revert');
         });
     });
 
@@ -555,7 +537,6 @@ describe('test CreatorToken', function () {
         it('computes the burn revenue', async function () {
             await deployer.sendToken(alice.address, '1000000');
             await alice.receiveAll();
-            await contract.call('createToken', [154], {caller: alice});
 
             // \int_0^27 154x dx = 56133
             await contract.call('mint', [alice.address, 27], {caller: alice, amount: '56133'});
@@ -574,8 +555,6 @@ describe('test CreatorToken', function () {
             await deployer.sendToken(alice.address, '1000000');
             await alice.receiveAll();
 
-            await contract.call('createToken', ['154'], {caller: alice});
-
             // \int_0^27 154x dx = 56133
             await contract.call('mint', [alice.address, 27], {caller: alice, amount: '56133'});
 
@@ -591,8 +570,6 @@ describe('test CreatorToken', function () {
         it('computes the burn amount', async function () {
             await deployer.sendToken(alice.address, '1000000');
             await alice.receiveAll();
-
-            await contract.call('createToken', [154], {caller: alice});
 
             // \int_0^27 154x dx = 56133
             await contract.call('mint', [alice.address, 27], {caller: alice, amount: '56133'});
@@ -611,8 +588,6 @@ describe('test CreatorToken', function () {
         it('fails to compute the burn amount that would cause the supply to go below the minimum', async function () {
             await deployer.sendToken(alice.address, '1000000');
             await alice.receiveAll();
-
-            await contract.call('createToken', ['154'], {caller: alice});
 
             // \int_0^27 154x dx = 56133
             await contract.call('mint', [alice.address, 27], {caller: alice, amount: '56133'});
