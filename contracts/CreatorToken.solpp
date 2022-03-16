@@ -6,7 +6,6 @@
 pragma soliditypp ^0.8.0;
 
 contract CreatorToken {
-    event TokenCreated(address indexed tokenId);
     event TokenMinted(address indexed tokenId, address indexed owner, uint128 amount);
     event TokenBurned(address indexed tokenId, address indexed owner, uint128 amount);
     event TokenTransferred(address indexed tokenId, address indexed from, address indexed to, uint128 amount);
@@ -14,17 +13,15 @@ contract CreatorToken {
     vitetoken public constant VITE = "tti_5649544520544f4b454e6e40";
 
     // We use uint128 so that squares don't overflow in uint256 math
-    mapping(address => uint128) private supplies;
+    mapping(address => uint128) private tradableSupplies;
 
     uint128 public coefficient;
     // owner => (tokenId => amount) mapping
     mapping(address => mapping(address => uint128)) private balances;
 
-    // Note: must be greater than 0
-    uint128 public minimumSupply = 1e4;
+    uint128 public minimumSupply;
 
     constructor (uint128 _minimumSupply, uint128 _coefficient) {
-        require(_minimumSupply > 0, "_minimumSupply must be greater than 0");
         require(_coefficient > 0, "_coefficient must be greater than 0");
         minimumSupply = _minimumSupply;
         coefficient = _coefficient;
@@ -40,29 +37,26 @@ contract CreatorToken {
     /// @param _tokenId The id of the token
     /// @param _owner The address to check
     function balanceOf(address _tokenId, address _owner) public view returns(uint128) {
-        require(exists(_tokenId), "CreatorToken: token does not exist");
         return _balanceOf(_tokenId, _owner);
     }
 
     function _totalSupply(address _tokenId) internal view returns(uint128) {
-        return supplies[_tokenId];
+        return tradableSupplies[_tokenId] + minimumSupply;
     }
 
     /// @notice Returns the total supply of a token
     /// @param _tokenId The id of the token
     function totalSupply(address _tokenId) external view returns(uint128) {
-        require(exists(_tokenId), "CreatorToken: token does not exist");
         return _totalSupply(_tokenId);
     }
 
     function _tradableSupply(address _tokenId) internal view returns(uint128) {
-        return supplies[_tokenId] - minimumSupply;
+        return tradableSupplies[_tokenId];
     }
 
     /// @notice Returns the tradable supply of a token, i.e. the amount of tokens that can be burned
     /// @param _tokenId The id of the token
     function tradableSupply(address _tokenId) external view returns(uint128) {
-        require(exists(_tokenId), "CreatorToken: token does not exist");
         return _tradableSupply(_tokenId);
     }
 
@@ -93,13 +87,13 @@ contract CreatorToken {
 
     /// @notice Returns the integral of the bonding curve
     ///
-    /// @param _oldSupply The old supply of the token
-    /// @param _newSupply The new supply of the token
+    /// @param _oldTradableSupply The old tradable supply of the token
+    /// @param _newTradableSupply The new tradable supply of the token
     ///
     /// @dev A positive returns value corresponds to a cost, a negative value corresponds to a revenue
-    function _computeIntegral(uint128 _oldSupply, uint128 _newSupply) internal view returns(int256) {
-        int256 tradableOldSupply = int256(uint256(_oldSupply - minimumSupply));
-        int256 tradableNewSupply = int256(uint256(_newSupply - minimumSupply));
+    function _computeIntegral(uint128 _oldTradableSupply, uint128 _newTradableSupply) internal view returns(int256) {
+        int256 oldTradableSupply = int256(uint256(_oldTradableSupply));
+        int256 newTradableSupply = int256(uint256(_newTradableSupply));
 
         // Integral of coefficient * tradableSupply is
         //  coefficient * x^2 / 2
@@ -108,26 +102,25 @@ contract CreatorToken {
         // Note: the division does not require rounding because the coefficient
         // is always even
         return int256(uint256(coefficient)) * (
-            tradableNewSupply * tradableNewSupply - tradableOldSupply * tradableOldSupply
+            newTradableSupply * newTradableSupply - oldTradableSupply * oldTradableSupply
         ) / 2;
     }
 
     function _mintCost(address _tokenId, uint128 _amount) internal view returns(uint256) {
-        uint128 oldSupply = supplies[_tokenId];
+        uint128 oldTradableSupply = _tradableSupply(_tokenId);
 
-        return uint256(_computeIntegral(oldSupply, oldSupply + _amount));
+        return uint256(_computeIntegral(oldTradableSupply, oldTradableSupply + _amount));
     }
 
     /// @notice Returns the cost of minting a certain amount of tokens
     /// @param _tokenId The id of the token
     /// @param _amount The amount of tokens to mint
     function mintCost(address _tokenId, uint128 _amount) external view returns(uint256) {
-        require(exists(_tokenId), "CreatorToken: token does not exist");
         return _mintCost(_tokenId, _amount);
     }
 
     function _mint(address _tokenId, uint128 _amount) internal {
-        supplies[_tokenId] += _amount;
+        tradableSupplies[_tokenId] += _amount;
         balances[msg.sender][_tokenId] += _amount;
 
         emit TokenMinted(_tokenId, msg.sender, _amount);
@@ -138,7 +131,6 @@ contract CreatorToken {
     /// @param _tokenId The id of the token
     /// @param _amount The amount of tokens to mint
     function mint(address _tokenId, uint128 _amount) external payable {
-        require(exists(_tokenId), "CreatorToken: token does not exist");
         require(_amount > 0, "CreatorToken: _amount must be greater than zero");
 
         // Important: the revenue/cost should always be computed before executing the operation
@@ -157,9 +149,9 @@ contract CreatorToken {
     }
 
     function _burnRevenue(address _tokenId, uint128 _amount) internal view returns(uint256) {
-        uint128 oldSupply = _totalSupply(_tokenId);
+        uint128 oldTradableSupply = _tradableSupply(_tokenId);
 
-        return uint256(-_computeIntegral(oldSupply, oldSupply - _amount));
+        return uint256(-_computeIntegral(oldTradableSupply, oldTradableSupply - _amount));
     }
 
     /// @notice Returns the revenue of burning a certain amount of tokens
@@ -167,14 +159,13 @@ contract CreatorToken {
     /// @param _tokenId The id of the token
     /// @param _amount The amount of tokens to burn
     function burnRevenue(address _tokenId, uint128 _amount) external view returns(uint256) {
-        require(exists(_tokenId), "CreatorToken: token does not exist");
         require(_amount <= _tradableSupply(_tokenId), "CreatorToken: _amount must be less than or equal to tradable supply");
         // require(_balanceOf(_tokenId, msg.sender) >= _amount, "CreatorToken: not enough tokens to burn");
         return _burnRevenue(_tokenId, _amount);
     }
 
     function _burn(address _tokenId, uint128 _amount) internal {
-        supplies[_tokenId] -= _amount;
+        tradableSupplies[_tokenId] -= _amount;
         balances[msg.sender][_tokenId] -= _amount;
 
         emit TokenBurned(_tokenId, msg.sender, _amount);
@@ -185,7 +176,6 @@ contract CreatorToken {
     /// @param _tokenId The id of the token
     /// @param _amount The amount of tokens to burn
     function burn(address _tokenId, uint128 _amount) external {
-        require(exists(_tokenId), "CreatorToken: token does not exist");
         require(_amount > 0, "CreatorToken: _amount must be greater than zero");
         require(_amount <= _tradableSupply(_tokenId), "CreatorToken: _amount must be less than or equal to tradable supply");
         require(_balanceOf(_tokenId, msg.sender) >= _amount, "CreatorToken: not enough tokens to burn");
@@ -201,12 +191,11 @@ contract CreatorToken {
 
     /// @notice Solves \int_old^t (coefficient * x) dx = difference for t
     ///
-    /// @param _oldSupply The old supply of the token
+    /// @param _oldTradableSupply The old tradable supply of the token
     /// @param _difference The difference (i.e. cost or revenue)
     /// @dev Rounds down.
-    function _inverseIntegral(uint128 _oldSupply, int256 _difference) internal view returns(uint128) {    
-        uint256 tradableOldSupply = uint256(_oldSupply - minimumSupply);
-
+    function _inverseIntegral(uint128 _oldTradableSupply, int256 _difference) internal view returns(uint128) {    
+        uint256 oldTradableSupply = uint256(_oldTradableSupply);
         // Integral of coefficient * tradableSupply is
         //  coefficient * (tradableSupply^2) / 2
         // Therefore
@@ -215,18 +204,18 @@ contract CreatorToken {
         //  2/coefficient * difference = new^2 - old^2
         // which is equivalent to
         //  new = sqrt(2/coefficient * difference - old^2)
-        uint256 newSupply = _sqrt(
-            uint256((2 * _difference / int256(uint256(coefficient))) + int256(tradableOldSupply * tradableOldSupply))
+        uint256 newTradableSupply = _sqrt(
+            uint256((2 * _difference / int256(uint256(coefficient))) + int256(oldTradableSupply * oldTradableSupply))
         );
-        return uint128(newSupply + minimumSupply);
+        return uint128(newTradableSupply);
     }
 
     function _burnAmount(address _tokenId, uint256 _revenue) internal view returns(uint128) {
-        uint128 oldSupply = _totalSupply(_tokenId);
+        uint128 oldTradableSupply = _tradableSupply(_tokenId);
 
-        uint128 newSupply = _inverseIntegral(oldSupply, -int256(_revenue));
+        uint128 newTradableSupply = _inverseIntegral(oldTradableSupply, -int256(_revenue));
 
-        return oldSupply - newSupply;
+        return oldTradableSupply - newTradableSupply;
     }
 
     /// @notice Returns the amount of tokens that would be burned if the given revenue was burned
@@ -236,7 +225,6 @@ contract CreatorToken {
     /// @dev Reverts if burning such an amount would bring the supply below the minimum
     /// @dev Depending on the parameters, might either round up or down
     function burnAmount(address _tokenId, uint256 _revenue) external view returns(uint128) {
-        require(exists(_tokenId), "CreatorToken: token does not exist");
         // Note: does not check if _revenue is greater than 0
 
         uint128 computedBurnAmount = _burnAmount(_tokenId, _revenue);
@@ -247,10 +235,10 @@ contract CreatorToken {
     }
 
     function _mintAmount(address _tokenId, uint256 _cost) internal view returns(uint128) {
-        uint128 oldSupply = _totalSupply(_tokenId);
+        uint128 oldTradableSupply = _tradableSupply(_tokenId);
 
-        uint128 newSupply = _inverseIntegral(oldSupply, int256(_cost));
-        return newSupply - oldSupply;
+        uint128 newTradableSupply = _inverseIntegral(oldTradableSupply, int256(_cost));
+        return newTradableSupply - oldTradableSupply;
     }
 
     /// @notice Returns the amount of tokens that would be minted if the given cost was paid
@@ -258,7 +246,6 @@ contract CreatorToken {
     /// @param _tokenId The id of the token
     /// @param _cost The cost that minting would involve
     function mintAmount(address _tokenId, uint256 _cost) external view returns(uint128) {
-        require(exists(_tokenId), "CreatorToken: token does not exist");
         // Note: does not check if _cost is greater than 0
         return _mintAmount(_tokenId, _cost);
     }
@@ -350,8 +337,6 @@ contract CreatorToken {
     /// @return The amount of tokens that would be swapped
     /// @return The eventual refund
     function simulateSwap(address _currentToken, address _newToken, uint128 _amount) external view returns(uint128, uint256) {
-        require(exists(_currentToken), "CreatorToken: current token does not exist");
-        require(exists(_newToken), "CreatorToken: new token does not exist");
         require(_amount <= _tradableSupply(_currentToken), "CreatorToken: _amount must be less than or equal to tradable supply");
 
         return _computeSwap(_currentToken, _newToken, _amount);
@@ -363,8 +348,6 @@ contract CreatorToken {
     /// @param _newToken The id of the token to swap to
     /// @param _amount The amount of tokens to swap
     function swap(address _currentToken, address _newToken, uint128 _amount) external {
-        require(exists(_currentToken), "CreatorToken: current token does not exist");
-        require(exists(_newToken), "CreatorToken: new token does not exist");
         require(_amount > 0, "CreatorToken: _amount must be greater than zero");
         require(_amount <= _tradableSupply(_currentToken), "CreatorToken: _amount must be less than or equal to tradable supply");
         require(_balanceOf(_currentToken, msg.sender) >= _amount, "CreatorToken: not enough current tokens to swap");
