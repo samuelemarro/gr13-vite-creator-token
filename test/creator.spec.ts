@@ -41,62 +41,42 @@ describe('test CreatorToken', function () {
         contract = compiledContracts.CreatorToken;
         // deploy
         contract.setDeployer(deployer).setProvider(provider);
-        await contract.deploy({params: []/*, responseLatency: 1*/});
+        await contract.deploy({params: ['10000', '154']/*, responseLatency: 1*/});
         expect(contract.address).to.be.a('string');
+        expect(await contract.query('coefficient')).to.be.deep.equal(['154']);
     });
 
-    describe('createToken', function() {
-        it('creates a token', async function() {
-            await contract.call('createToken', [154], {caller: alice});
-            expect(await contract.query('exists', [alice.address], {caller: alice})).to.be.deep.equal(['1']);
-            expect(await contract.query('tokenCoefficient', [alice.address], {caller: alice})).to.be.deep.equal(['154']);
-            expect(await contract.query('balanceOf', [alice.address, alice.address], {caller: alice})).to.be.deep.equal(['10000']);
-            expect(await contract.query('totalSupply', [alice.address], {caller: alice})).to.be.deep.equal(['10000']);
-            expect(await contract.query('tradableSupply', [alice.address], {caller: alice})).to.be.deep.equal(['0']);
-            expect(await contract.query('currentPrice', [alice.address], {caller: alice})).to.be.deep.equal(['0']);
-
-            // TODO: Check events
-        });
-
-        it('fails to create a token with an odd coefficient', async function() {
-            await expect(
-                contract.call('createToken', [153], {caller: alice})
-            ).to.eventually.be.rejectedWith('revert');
-        });
-
-        it('fails to create a token with coefficient 0', async function() {
-            await expect(
-                contract.call('createToken', [0], {caller: alice})
-            ).to.eventually.be.rejectedWith('revert');
-        });
-
-        it('fails to create a token twice', async function() {
-            await contract.call('createToken', [154], {caller: bob});
-            await expect(
-                contract.call('createToken', [154], {caller: bob})
-            ).to.eventually.be.rejectedWith('revert');
-        });
-    });
 
     describe('transfer', function() {
         it('transfers a token', async function () {
-            await contract.call('createToken', [154], {caller: alice});
+            // Initially Alice has 10k Alice-tokens
+            expect(await contract.query('balanceOf', [alice.address, alice.address])).to.be.deep.equal(['10000']);
+
             await contract.call('transfer', [alice.address, bob.address, '1'], {caller: alice});
+
+            // Alice now has 9999 Alice-tokens and Bob has 1 Alice-token
+            expect(await contract.query('balanceOf', [alice.address, alice.address])).to.be.deep.equal(['9999']);
+            expect(await contract.query('balanceOf', [alice.address, bob.address])).to.be.deep.equal(['1']);
+
+            // Tradable and total supplies don't change
+            expect(await contract.query('tradableSupply')).to.be.deep.equal(['10000']);
+            expect(await contract.query('totalSupply')).to.be.deep.equal(['10000']);
+
+            // Alice is now initialized
+            expect(await contract.query('ownerHasCollectedSupply', [alice.address])).to.be.deep.equal(['1']);
 
             const events = await contract.getPastEvents('allEvents', {fromHeight: 0, toHeight: 100});
             checkEvents(events, [
-                { '0': alice.address, tokenId: alice.address }, // Token created
                 {
                     '0': alice.address, tokenId: alice.address,
                     '1': alice.address, from: alice.address,
                     '2': bob.address, to: bob.address,
                     '3': '1', amount: '1'
                 } // Token transferred
-            ])
+            ]);
         });
 
         it('fails to transfer a token without enough balance', async function () {
-            await contract.call('createToken', [154], {caller: alice});
             await expect(
                 contract.call('transfer', [alice.address, bob.address, 10001], {caller: alice})
             ).to.eventually.be.rejectedWith('revert');
@@ -107,13 +87,15 @@ describe('test CreatorToken', function () {
         it('mints a token', async function() {
             await deployer.sendToken(alice.address, '1000000');
             await alice.receiveAll();
-            await contract.call('createToken', [154], {caller: alice});
             // Mint 27 tokens
             // \int_0^27 154x dx = 56133
             await contract.call('mint', [alice.address, 27], {caller: alice, amount: '56133'});
             expect(await contract.balance()).to.be.deep.equal('56133');
             // 1000000 - 56133 = 943867
             expect(await alice.balance()).to.be.deep.equal('943867');
+
+            // Alice is now initialized
+            expect(await contract.query('ownerHasCollectedSupply', [alice.address])).to.be.deep.equal(['1']);
 
             expect(await contract.query('balanceOf', [alice.address, alice.address], {caller: alice})).to.be.deep.equal(['10027']);
             expect(await contract.query('totalSupply', [alice.address], {caller: alice})).to.be.deep.equal(['10027']);
@@ -123,7 +105,6 @@ describe('test CreatorToken', function () {
 
             const events = await contract.getPastEvents('allEvents', {fromHeight: 0, toHeight: 100});
             checkEvents(events, [
-                { '0': alice.address, tokenId: alice.address }, // Token created
                 {
                     '0': alice.address, tokenId: alice.address,
                     '1': alice.address, owner: alice.address,
@@ -136,13 +117,15 @@ describe('test CreatorToken', function () {
             await deployer.sendToken(alice.address, '1000000');
             await alice.receiveAll();
             expect(await alice.balance()).to.be.deep.equal('1000000')
-            await contract.call('createToken', [154], {caller: alice});
             // Mint 27 tokens
             // \int_0^27 154x dx = 56133
             await contract.call('mint', [alice.address, 27], {caller: alice, amount: '56133'});
             expect(await contract.balance()).to.be.deep.equal('56133');
             // 1000000 - 56133 = 943867
             expect(await alice.balance()).to.be.deep.equal('943867');
+
+            // Alice is now initialized
+            expect(await contract.query('ownerHasCollectedSupply', [alice.address])).to.be.deep.equal(['1']);
 
             expect(await contract.query('balanceOf', [alice.address, alice.address], {caller: alice})).to.be.deep.equal(['10027']);
             expect(await contract.query('totalSupply', [alice.address], {caller: alice})).to.be.deep.equal(['10027']);
@@ -166,7 +149,6 @@ describe('test CreatorToken', function () {
 
             const events = await contract.getPastEvents('allEvents', {fromHeight: 0, toHeight: 100});
             checkEvents(events, [
-                { '0': alice.address, tokenId: alice.address }, // Token created
                 {
                     '0': alice.address, tokenId: alice.address,
                     '1': alice.address, owner: alice.address,
@@ -180,18 +162,9 @@ describe('test CreatorToken', function () {
             ]);
         });
 
-        it('fails to mint a non-existent token', async function() {
-            await deployer.sendToken(alice.address, '1000000');
-            await alice.receiveAll();
-            await expect(
-                contract.call('mint', [alice.address, 0], {caller: alice, amount: '56133'})
-            ).to.eventually.be.rejectedWith('revert');
-        });
-
         it('fails to mint 0 tokens', async function() {
             await deployer.sendToken(alice.address, '1000000');
             await alice.receiveAll();
-            await contract.call('createToken', ['154'], {caller: alice});
             await expect(
                 contract.call('mint', [alice.address, 0], {caller: alice, amount: '56133'})
             ).to.eventually.be.rejectedWith('revert');
@@ -200,7 +173,6 @@ describe('test CreatorToken', function () {
         it('overpays a mint call', async function() {
             await deployer.sendToken(alice.address, '1000000');
             await alice.receiveAll();
-            await contract.call('createToken', [154], {caller: alice});
             // Mint 27 tokens
             // \int_0^27 154x dx = 56133
             // We're gonna pay 56135
@@ -223,7 +195,6 @@ describe('test CreatorToken', function () {
         it('fails to underpay a mint call', async function() {
             await deployer.sendToken(alice.address, '1000000');
             await alice.receiveAll();
-            await contract.call('createToken', [154], {caller: alice});
             // Mint 27 tokens
             // \int_0^27 154x dx = 56133
             // We're gonna pay 56132
