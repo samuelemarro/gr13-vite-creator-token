@@ -14,7 +14,6 @@ library PriorityQueue {
     struct Queue {
         uint256[] heapList;
         uint256 currentSize;
-        uint256 maxSize;
     }
 
     /**
@@ -36,7 +35,7 @@ library PriorityQueue {
      * @dev Does not perform deduplication
      */
     function insert(Queue memory self, uint256 _element) internal pure {
-        require(self.currentSize < self.maxSize, "Queue is full");
+        require(self.currentSize < self.heapList.length, "Queue is full");
         self.heapList[self.currentSize] = _element;
         self.currentSize++;
         percUp(self, self.currentSize);
