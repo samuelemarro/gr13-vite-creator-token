@@ -48,7 +48,7 @@ describe('test CreatorToken', function () {
 
 
     describe('transfer', function() {
-        it('transfers a token', async function () {
+        it.only('transfers a token', async function () {
             // Initially Alice has 10k Alice-tokens
             expect(await contract.query('balanceOf', [alice.address, alice.address])).to.be.deep.equal(['10000']);
 
@@ -59,8 +59,8 @@ describe('test CreatorToken', function () {
             expect(await contract.query('balanceOf', [alice.address, bob.address])).to.be.deep.equal(['1']);
 
             // Tradable and total supplies don't change
-            expect(await contract.query('tradableSupply')).to.be.deep.equal(['10000']);
-            expect(await contract.query('totalSupply')).to.be.deep.equal(['10000']);
+            expect(await contract.query('tradableSupply', [alice.address])).to.be.deep.equal(['0']);
+            expect(await contract.query('totalSupply', [alice.address])).to.be.deep.equal(['10000']);
 
             // Alice is now initialized
             expect(await contract.query('ownerHasCollectedSupply', [alice.address])).to.be.deep.equal(['1']);
