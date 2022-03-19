@@ -12,8 +12,13 @@ pragma soliditypp ^0.8.0;
  */
 library PriorityQueue {
     struct Queue {
-        uint256[] heapList;
+        Pair[] heapList;
         uint256 currentSize;
+    }
+
+    struct Pair {
+        uint256 key;
+        address value;
     }
 
     /**
@@ -23,10 +28,14 @@ library PriorityQueue {
         return self.currentSize;
     }
 
+    function maxSize(Queue memory self) internal pure returns (uint256) {
+        return self.heapList.length;
+    }
+
     /**
      * @notice Gets all elements in the queue
      */
-    function heapList(Queue memory self) internal pure returns (uint256[] memory) {
+    function heapList(Queue memory self) internal pure returns (Pair[] memory) {
         return self.heapList;
     }
 
@@ -34,7 +43,7 @@ library PriorityQueue {
      * @notice Inserts an element into the queue by the framework
      * @dev Does not perform deduplication
      */
-    function insert(Queue memory self, uint256 _element) internal pure {
+    function insert(Queue memory self, Pair memory _element) internal pure {
         require(self.currentSize < self.heapList.length, "Queue is full");
         self.heapList[self.currentSize] = _element;
         self.currentSize++;
@@ -46,9 +55,9 @@ library PriorityQueue {
      * @dev Fails when queue is empty
      * @return The smallest element in the priority queue
      */
-    function delMin(Queue memory self) internal pure returns (uint256) {
+    function delMin(Queue memory self) internal pure returns (Pair memory) {
         require(self.currentSize > 0, "Queue is empty");
-        uint256 retVal = self.heapList[1];
+        Pair memory retVal = self.heapList[1];
         self.heapList[1] = self.heapList[self.currentSize];
         delete self.heapList[self.currentSize];
         self.currentSize--;
@@ -61,7 +70,7 @@ library PriorityQueue {
      * @dev Fails when queue is empty
      * @return The smallest element in the priority queue
      */
-    function getMin(Queue memory self) internal pure returns (uint256) {
+    function getMin(Queue memory self) internal pure returns (Pair memory) {
         require(self.currentSize > 0, "Queue is empty");
         return self.heapList[1];
     }
@@ -69,8 +78,8 @@ library PriorityQueue {
     function percUp(Queue memory self, uint256 pointer) private pure {
         uint256 i = pointer;
         uint256 j = i;
-        uint256 newVal = self.heapList[i];
-        while (newVal < self.heapList[i / 2]) {
+        Pair memory newVal = self.heapList[i];
+        while (newVal.key < self.heapList[i / 2].key) {
             self.heapList[i] = self.heapList[i / 2];
             i = i / 2;
         }
@@ -82,9 +91,9 @@ library PriorityQueue {
     function percDown(Queue memory self, uint256 pointer) private pure {
         uint256 i = pointer;
         uint256 j = i;
-        uint256 newVal = self.heapList[i];
+        Pair memory newVal = self.heapList[i];
         uint256 mc = minChild(self, i);
-        while (mc <= self.currentSize && newVal > self.heapList[mc]) {
+        while (mc <= self.currentSize && newVal.key > self.heapList[mc].key) {
             self.heapList[i] = self.heapList[mc];
             i = mc;
             mc = minChild(self, i);
@@ -98,7 +107,7 @@ library PriorityQueue {
         if (2 * i + 1 > self.currentSize) {
             return 2 * i;
         } else {
-            if (self.heapList[2 * i] < self.heapList[2 * i + 1]) {
+            if (self.heapList[2 * i].key < self.heapList[2 * i + 1].key) {
                 return 2 * i;
             } else {
                 return 2 * i + 1;
