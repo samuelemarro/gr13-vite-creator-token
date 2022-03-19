@@ -17,7 +17,7 @@ library PriorityQueue {
     }
 
     struct Pair {
-        uint256 key;
+        uint128 key;
         address data;
     }
 

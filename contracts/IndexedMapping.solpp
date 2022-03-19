@@ -11,7 +11,7 @@ library IndexedMapping {
 
     struct HolderInfo {
         address holder;
-        uint256 balance;
+        uint128 balance;
     }
 
     struct Map {
@@ -24,7 +24,7 @@ library IndexedMapping {
         return self.addressToId[_address] != 0;
     }
 
-    function set(Map storage self, address _address, uint256 _balance) internal {
+    function set(Map storage self, address _address, uint128 _balance) internal {
         if (exists(self, _address)) {
             self.holderInfos[self.addressToId[_address]].balance = _balance;
         }
@@ -36,7 +36,7 @@ library IndexedMapping {
         }
     }
 
-    function get(Map storage self, address _address) internal view returns (uint256) {
+    function get(Map storage self, address _address) internal view returns (uint128) {
         return self.holderInfos[self.addressToId[_address]].balance;
     }
 
