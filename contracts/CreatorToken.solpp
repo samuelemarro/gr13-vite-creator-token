@@ -5,7 +5,10 @@
 
 pragma soliditypp ^0.8.0;
 
+import "./IndexedMapping.solpp";
+
 contract CreatorToken {
+    using IndexedMapping for IndexedMapping.Map;
     event TokenMinted(address indexed tokenId, address indexed owner, uint128 amount);
     event TokenBurned(address indexed tokenId, address indexed owner, uint128 amount);
     event TokenTransferred(address indexed tokenId, address indexed from, address indexed to, uint128 amount);
@@ -16,8 +19,8 @@ contract CreatorToken {
     mapping(address => uint128) private tradableSupplies;
 
     uint128 public coefficient;
-    // owner => (tokenId => amount) mapping
-    mapping(address => mapping(address => uint128)) private balances;
+    // tokenId => (owner => amount) mapping
+    mapping(address => IndexedMapping.Map) private balances;
 
     // owner => bool mapping
     mapping(address => bool) private ownerCollectedSupply;
@@ -39,7 +42,7 @@ contract CreatorToken {
     //       initial supply; in practice, it gets added during the owner's first mint, transfer, burn or swap.
     function _balanceOf(address _tokenId, address _owner) internal view returns (uint128) {
         if (_tokenId != _owner || ownerCollectedSupply[_owner]) {
-            return balances[_owner][_tokenId];
+            return balances[_tokenId].get(_owner);
         } else {
             return minimumSupply;
         }
@@ -94,7 +97,8 @@ contract CreatorToken {
 
     /// @notice Mints the minimum supply to the owner
     function _initialize(address _tokenId) internal {
-        balances[_tokenId][_tokenId] += minimumSupply;
+        uint128 currentBalance = balances[_tokenId].get(_tokenId);
+        balances[_tokenId].set(_tokenId, currentBalance + minimumSupply);
         ownerCollectedSupply[_tokenId] = true;
     }
 
@@ -117,8 +121,11 @@ contract CreatorToken {
 
         _maybeInitialize(_tokenId);
 
-        balances[msg.sender][_tokenId] -= _amount;
-        balances[_to][_tokenId] += _amount;
+        uint128 currentFromBalance = balances[_tokenId].get(msg.sender);
+        balances[_tokenId].set(msg.sender, currentFromBalance - _amount);
+
+        uint128 currentToBalance = balances[_tokenId].get(_to);
+        balances[_tokenId].set(_to, currentToBalance + _amount);
 
         emit TokenTransferred(_tokenId, msg.sender, _to,_amount);
     }
@@ -161,7 +168,9 @@ contract CreatorToken {
 
     function _mint(address _tokenId, uint128 _amount) internal {
         tradableSupplies[_tokenId] += _amount;
-        balances[msg.sender][_tokenId] += _amount;
+
+        uint128 currentBalance = balances[_tokenId].get(msg.sender);
+        balances[_tokenId].set(msg.sender, currentBalance + _amount);
 
         emit TokenMinted(_tokenId, msg.sender, _amount);
     }
@@ -208,7 +217,8 @@ contract CreatorToken {
 
     function _burn(address _tokenId, uint128 _amount) internal {
         tradableSupplies[_tokenId] -= _amount;
-        balances[msg.sender][_tokenId] -= _amount;
+        uint128 currentBalance = balances[_tokenId].get(msg.sender);
+        balances[_tokenId].set(msg.sender, currentBalance - _amount);
 
         emit TokenBurned(_tokenId, msg.sender, _amount);
     }
