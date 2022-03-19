@@ -18,7 +18,14 @@ library PriorityQueue {
 
     struct Pair {
         uint256 key;
-        address value;
+        address data;
+    }
+
+    function newQueue(uint256 _maxSize) internal pure returns (Queue memory) {
+        Queue memory queue;
+        queue.heapList = new Pair[](_maxSize);
+        queue.currentSize = 0;
+        return queue;
     }
 
     /**

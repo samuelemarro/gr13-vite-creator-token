@@ -38,7 +38,7 @@ contract IndexedMapping {
     }
 
     function topKs(uint256 k) public view returns (address[] memory) {
-        PriorityQueue.Queue memory queue;
+        PriorityQueue.Queue memory queue = PriorityQueue.newQueue(k);
 
         for (uint256 i = 1; i < length + 1; i++) {
             if (holderInfos[i].balance != 0) {
