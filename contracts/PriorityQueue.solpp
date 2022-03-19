@@ -24,7 +24,7 @@ library PriorityQueue {
     /**
      * @notice Gets num of elements in the queue
      */
-    function currentSize(Queue memory self) internal pure returns (uint256) {
+    function size(Queue memory self) internal pure returns (uint256) {
         return self.currentSize;
     }
 
@@ -43,7 +43,7 @@ library PriorityQueue {
      * @notice Inserts an element into the queue by the framework
      * @dev Does not perform deduplication
      */
-    function insert(Queue memory self, Pair memory _element) internal pure {
+    function push(Queue memory self, Pair memory _element) internal pure {
         require(self.currentSize < self.heapList.length, "Queue is full");
         self.heapList[self.currentSize] = _element;
         self.currentSize++;
@@ -55,7 +55,7 @@ library PriorityQueue {
      * @dev Fails when queue is empty
      * @return The smallest element in the priority queue
      */
-    function delMin(Queue memory self) internal pure returns (Pair memory) {
+    function pop(Queue memory self) internal pure returns (Pair memory) {
         require(self.currentSize > 0, "Queue is empty");
         Pair memory retVal = self.heapList[1];
         self.heapList[1] = self.heapList[self.currentSize];
@@ -70,7 +70,7 @@ library PriorityQueue {
      * @dev Fails when queue is empty
      * @return The smallest element in the priority queue
      */
-    function getMin(Queue memory self) internal pure returns (Pair memory) {
+    function peek(Queue memory self) internal pure returns (Pair memory) {
         require(self.currentSize > 0, "Queue is empty");
         return self.heapList[1];
     }
