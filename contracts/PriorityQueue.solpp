@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+/// @title Memory-only PriorityQueue implementation
+/// @author Plasma Team (adapted by Samuele Marro)
 pragma soliditypp ^0.8.0;
 
 // Adapted from https://github.com/omgnetwork/plasma-contracts/blob/v2.0.0/plasma_framework/contracts/src/framework/utils/PriorityQueue.sol
@@ -11,19 +14,20 @@ library PriorityQueue {
     struct Queue {
         uint256[] heapList;
         uint256 currentSize;
+        uint256 maxSize;
     }
 
     /**
      * @notice Gets num of elements in the queue
      */
-    function currentSize(Queue memory self) external view returns (uint256) {
+    function currentSize(Queue memory self) internal pure returns (uint256) {
         return self.currentSize;
     }
 
     /**
      * @notice Gets all elements in the queue
      */
-    function heapList(Queue memory self) external view returns (uint256[] memory) {
+    function heapList(Queue memory self) internal pure returns (uint256[] memory) {
         return self.heapList;
     }
 
@@ -31,9 +35,10 @@ library PriorityQueue {
      * @notice Inserts an element into the queue by the framework
      * @dev Does not perform deduplication
      */
-    function insert(Queue memory self, uint256 _element) external {
-        self.heapList.push(_element);
-        self.currentSize = self.currentSize.add(1);
+    function insert(Queue memory self, uint256 _element) internal pure {
+        require(self.currentSize < self.maxSize, "Queue is full");
+        self.heapList[self.currentSize] = _element;
+        self.currentSize++;
         percUp(self, self.currentSize);
     }
 
@@ -42,14 +47,13 @@ library PriorityQueue {
      * @dev Fails when queue is empty
      * @return The smallest element in the priority queue
      */
-    function delMin(Queue memory self) external returns (uint256) {
+    function delMin(Queue memory self) internal pure returns (uint256) {
         require(self.currentSize > 0, "Queue is empty");
         uint256 retVal = self.heapList[1];
         self.heapList[1] = self.heapList[self.currentSize];
         delete self.heapList[self.currentSize];
-        self.currentSize = self.currentSize.sub(1);
+        self.currentSize--;
         percDown(self, 1);
-        self.heapList.length = self.heapList.length.sub(1);
         return retVal;
     }
 
@@ -58,25 +62,25 @@ library PriorityQueue {
      * @dev Fails when queue is empty
      * @return The smallest element in the priority queue
      */
-    function getMin(Queue memory self) external view returns (uint256) {
+    function getMin(Queue memory self) internal pure returns (uint256) {
         require(self.currentSize > 0, "Queue is empty");
         return self.heapList[1];
     }
 
-    function percUp(Queue storage self, uint256 pointer) private {
+    function percUp(Queue memory self, uint256 pointer) private pure {
         uint256 i = pointer;
         uint256 j = i;
         uint256 newVal = self.heapList[i];
-        while (newVal < self.heapList[i.div(2)]) {
-            self.heapList[i] = self.heapList[i.div(2)];
-            i = i.div(2);
+        while (newVal < self.heapList[i / 2]) {
+            self.heapList[i] = self.heapList[i / 2];
+            i = i / 2;
         }
         if (i != j) {
             self.heapList[i] = newVal;
         }
     }
 
-    function percDown(Queue storage self, uint256 pointer) private {
+    function percDown(Queue memory self, uint256 pointer) private pure {
         uint256 i = pointer;
         uint256 j = i;
         uint256 newVal = self.heapList[i];
@@ -91,14 +95,14 @@ library PriorityQueue {
         }
     }
 
-    function minChild(Queue storage self, uint256 i) private view returns (uint256) {
-        if (i.mul(2).add(1) > self.currentSize) {
-            return i.mul(2);
+    function minChild(Queue memory self, uint256 i) private pure returns (uint256) {
+        if (2 * i + 1 > self.currentSize) {
+            return 2 * i;
         } else {
-            if (self.heapList[i.mul(2)] < self.heapList[i.mul(2).add(1)]) {
-                return i.mul(2);
+            if (self.heapList[2 * i] < self.heapList[2 * i + 1]) {
+                return 2 * i;
             } else {
-                return i.mul(2).add(1);
+                return 2 * i + 1;
             }
         }
     }
