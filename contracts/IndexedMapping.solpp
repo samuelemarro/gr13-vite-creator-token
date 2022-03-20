@@ -4,10 +4,7 @@
 
 pragma soliditypp ^0.8.0;
 
-import "./PriorityQueue.solpp";
-
 library IndexedMapping {
-    using PriorityQueue for *;
 
     struct HolderInfo {
         address holder;
@@ -41,24 +38,37 @@ library IndexedMapping {
     }
 
     function topKs(Map storage self, uint256 k) internal view returns (address[] memory) {
-        PriorityQueue.Queue memory queue = PriorityQueue.newQueue(k);
+        HolderInfo[] memory holderInfoCopy = new HolderInfo[](self.length);
 
+        uint256 copyLength = 0;
         for (uint256 i = 1; i < self.length + 1; i++) {
             if (self.holderInfos[i].balance != 0) {
-                queue.push(PriorityQueue.Pair(self.holderInfos[i].balance, self.holderInfos[i].holder));
-                if (queue.size() > k) {
-                    // Pop the lowest value
-                    queue.pop();
-                }
+                holderInfoCopy[copyLength] = self.holderInfos[i];
+                copyLength++;
             }
         }
 
-        uint256 size = queue.size();
-        address[] memory topK = new address[](size);
+        uint256 numElements = k < copyLength ? k : copyLength;
 
-        for (uint256 i = 0; i < size; i++) {
-            // Popping returns the lowest value
-            topK[k - i] = queue.pop().data;
+        for (uint256 i = 0; i < numElements; i++) {
+            uint256 maxIndex = i;
+            for (uint256 j = i + 1; j < copyLength; j++) {
+                if (holderInfoCopy[j].balance > holderInfoCopy[maxIndex].balance) {
+                    maxIndex = j;
+                }
+            }
+
+            if (maxIndex != i) {
+                HolderInfo memory temp = holderInfoCopy[i];
+                holderInfoCopy[i] = holderInfoCopy[maxIndex];
+                holderInfoCopy[maxIndex] = temp;
+            }
+        }
+
+        address[] memory topK = new address[](numElements);
+
+        for (uint256 i = 0; i < numElements; i++) {
+            topK[i] = holderInfoCopy[i].holder;
         }
 
         return topK;
