@@ -372,7 +372,6 @@ contract CreatorToken {
 
         // Note: _mintAmount rounds down
         uint128 newTokenAmount = _mintAmount(_newToken, computedBurnRevenue);
-        require(newTokenAmount <= _tradableSupply(_newToken), "CreatorToken: not enough tradable new tokens to swap");
 
         uint256 computedMintCost = _mintCost(_newToken, newTokenAmount);
         // Sanity check
