@@ -117,7 +117,7 @@ contract CreatorToken {
     function transfer(address _tokenId, address _to, uint128 _amount) external {
         require(_to != address(this), "CreatorToken: cannot transfer to self");
         require(_amount > 0);
-        require(balanceOf(msg.sender, _tokenId) >= _amount);
+        require(_balanceOf(msg.sender, _tokenId) >= _amount);
 
         _maybeInitialize(_tokenId);
 
@@ -421,5 +421,9 @@ contract CreatorToken {
         if (refund > 0) {
             payable(msg.sender).transfer(VITE, refund);
         }
+    }
+
+    function topHolders(address _tokenId, uint256 _n) external view returns(address[] memory) {
+        return balances[_tokenId].topKs(_n);
     }
 }
