@@ -2,6 +2,15 @@
 
 This contract is my submission to GitCoin's Round 13 Hackathon "Creator Token Platform" bounty.
 
+## Features
+
+- Transfer tokens
+- Mint and burn tokens using a linear bonding curve
+- Swap tokens for other tokens
+- View the number of holders
+- View holders in descending order of ownership
+- Customizable bonding curve coefficient
+
 ## Installing
 
 `git clone https://github.com/samuelemarro/gr13-vite-creator-token`
