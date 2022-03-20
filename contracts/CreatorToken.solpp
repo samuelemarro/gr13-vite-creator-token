@@ -426,4 +426,8 @@ contract CreatorToken {
     function topHolders(address _tokenId, uint256 _n) external view returns(address[] memory) {
         return balances[_tokenId].topKs(_n);
     }
+
+    function numHolders(address _tokenId) external view returns(uint256) {
+        return balances[_tokenId].countNonZero();
+    }
 }

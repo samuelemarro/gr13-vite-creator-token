@@ -73,4 +73,14 @@ library IndexedMapping {
 
         return topK;
     }
+
+    function countNonZero(Map storage self) internal view returns(uint256) {
+        uint256 count = 0;
+        for (uint256 i = 1; i < self.length + 1; i++) {
+            if (self.holderInfos[i].balance != 0) {
+                count++;
+            }
+        }
+        return count;
+    }
 }
