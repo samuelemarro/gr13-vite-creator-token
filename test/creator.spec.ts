@@ -791,7 +791,6 @@ describe('test CreatorToken', function () {
             const dave = vite.newAccount(config.networks.local.mnemonic, mnemonicCounter++);
             await deployer.sendToken(dave.address, '1000000');
             await dave.receiveAll();
-
             
             // \int_0^27 154x dx = 56133
             await contract.call('mint', [alice.address, 27], {caller: alice, amount: '56133'});
@@ -806,6 +805,8 @@ describe('test CreatorToken', function () {
             expect(await contract.query('balanceOf', [alice.address, bob.address], {caller: bob})).to.be.deep.equal(['12']);
             expect(await contract.query('balanceOf', [alice.address, charlie.address], {caller: charlie})).to.be.deep.equal(['2']);
             expect(await contract.query('balanceOf', [alice.address, dave.address], {caller: dave})).to.be.deep.equal(['3']);
+
+            expect(await contract.query('numHolders', [alice.address])).to.be.deep.equal(['4']);
 
             expect(await contract.query('topHolders', [alice.address, 4], {caller: alice})).to.be.deep.equal([[
                 alice.address,
@@ -852,18 +853,19 @@ describe('test CreatorToken', function () {
             await contract.call('mint', [alice.address, 2], {caller: charlie, amount: '12320'});
 
             await contract.call('transfer', [alice.address, charlie.address, 10026], {caller: alice});
-            await contract.call('transfer', [alice.address, dave.address, 27], {caller: bob});
+            await contract.call('transfer', [alice.address, dave.address, 12], {caller: bob});
 
             expect(await contract.query('balanceOf', [alice.address, alice.address], {caller: alice})).to.be.deep.equal(['1']);
             expect(await contract.query('balanceOf', [alice.address, bob.address], {caller: bob})).to.be.deep.equal(['0']);
             expect(await contract.query('balanceOf', [alice.address, charlie.address], {caller: charlie})).to.be.deep.equal(['10028']);
             expect(await contract.query('balanceOf', [alice.address, dave.address], {caller: dave})).to.be.deep.equal(['12']);
 
+            expect(await contract.query('numHolders', [alice.address])).to.be.deep.equal(['3']);
+
             expect(await contract.query('topHolders', [alice.address, 4], {caller: alice})).to.be.deep.equal([[
                 charlie.address,
                 dave.address,
-                alice.address,
-                bob.address
+                alice.address
             ]]);
 
             expect(await contract.query('topHolders', [alice.address, 2], {caller: alice})).to.be.deep.equal([[
@@ -874,13 +876,14 @@ describe('test CreatorToken', function () {
             expect(await contract.query('topHolders', [alice.address, 5], {caller: alice})).to.be.deep.equal([[
                 charlie.address,
                 dave.address,
-                alice.address,
-                bob.address
+                alice.address
             ]]);
 
             expect(await contract.query('topHolders', [alice.address, 0], {caller: alice})).to.be.deep.equal([[]]);
         });
+
         it('computes top holders for a token without holders', async function() {
+            expect(await contract.query('numHolders', [alice.address])).to.be.deep.equal(['0']);
             expect(await contract.query('topHolders', [alice.address, 2], {caller: alice})).to.be.deep.equal([[
             ]]);
         });
@@ -908,6 +911,8 @@ describe('test CreatorToken', function () {
             
             expect(await contract.query('balanceOf', [alice.address, alice.address], {caller: alice})).to.be.deep.equal(['0']);
             expect(await contract.query('balanceOf', [alice.address, bob.address], {caller: bob})).to.be.deep.equal(['10027']);
+
+            expect(await contract.query('numHolders', [alice.address])).to.be.deep.equal(['1']);
 
             expect(await contract.query('topHolders', [alice.address, 4], {caller: alice})).to.be.deep.equal([[
                 bob.address
