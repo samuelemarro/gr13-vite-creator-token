@@ -112,6 +112,39 @@ describe('test CreatorToken', function () {
             ]);
         });
 
+        it('mints a token of someone else', async function() {
+            await deployer.sendToken(bob.address, '1000000');
+            await bob.receiveAll();
+
+            expect(await contract.query('balanceOf', [alice.address, alice.address], {caller: alice})).to.be.deep.equal(['10000']);
+
+            // Mint 27 tokens
+            // \int_0^27 154x dx = 56133
+            await contract.call('mint', [alice.address, 27], {caller: bob, amount: '56133'});
+            expect(await contract.balance()).to.be.deep.equal('56133');
+            // 1000000 - 56133 = 943867
+            expect(await bob.balance()).to.be.deep.equal('943867');
+
+            // Alice is now initialized
+            expect(await contract.query('ownerHasCollectedSupply', [alice.address])).to.be.deep.equal(['0']);
+
+            expect(await contract.query('balanceOf', [alice.address, alice.address], {caller: alice})).to.be.deep.equal(['10000']);
+            expect(await contract.query('balanceOf', [alice.address, bob.address], {caller: alice})).to.be.deep.equal(['27']);
+            expect(await contract.query('totalSupply', [alice.address], {caller: alice})).to.be.deep.equal(['10027']);
+            //expect(await contract.query('tradableSupply', [alice.address], {caller: alice})).to.be.deep.equal(['27']);
+            // 154 * 27 = 4158
+            expect(await contract.query('currentPrice', [alice.address], {caller: alice})).to.be.deep.equal(['4158']);
+
+            const events = await contract.getPastEvents('allEvents', {fromHeight: 0, toHeight: 100});
+            checkEvents(events, [
+                {
+                    '0': alice.address, tokenId: alice.address,
+                    '1': bob.address, owner: bob.address,
+                    '2': '27', amount: '27'
+                } // Token minted
+            ]);
+        });
+
         it('mints a token twice', async function() {
             await deployer.sendToken(alice.address, '1000000');
             await alice.receiveAll();
