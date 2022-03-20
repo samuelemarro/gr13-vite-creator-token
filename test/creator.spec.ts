@@ -601,7 +601,7 @@ describe('test CreatorToken', function () {
     });
 
     describe('topHolders', function() {
-        it.only('computes top holders', async function () {
+        it('computes top holders', async function () {
             await deployer.sendToken(alice.address, '1000000');
             await alice.receiveAll();
 
@@ -653,9 +653,100 @@ describe('test CreatorToken', function () {
 
             expect(await contract.query('topHolders', [alice.address, 0], {caller: alice})).to.be.deep.equal([[]]);
         });
+        it('computes top holders for a token where some holders have transferred their assets', async function() {
+            await deployer.sendToken(alice.address, '1000000');
+            await alice.receiveAll();
+
+            await deployer.sendToken(bob.address, '1000000');
+            await bob.receiveAll();
+
+            const charlie = vite.newAccount(config.networks.local.mnemonic, mnemonicCounter++);
+
+            await deployer.sendToken(charlie.address, '1000000');
+            await charlie.receiveAll();
+
+            const dave = vite.newAccount(config.networks.local.mnemonic, mnemonicCounter++);
+            await deployer.sendToken(dave.address, '1000000');
+            await dave.receiveAll();
+
+            // \int_0^27 154x dx = 56133
+            await contract.call('mint', [alice.address, 27], {caller: alice, amount: '56133'});
+            // \int_27^39 154x dx = 60984
+            await contract.call('mint', [alice.address, 12], {caller: bob, amount: '60984'});
+            // \int_39^41 154x dx = 12320
+            await contract.call('mint', [alice.address, 2], {caller: charlie, amount: '12320'});
+
+            await contract.call('transfer', [alice.address, charlie.address, 10026], {caller: alice});
+            await contract.call('transfer', [alice.address, dave.address, 27], {caller: bob});
+
+            expect(await contract.query('balanceOf', [alice.address, alice.address], {caller: alice})).to.be.deep.equal(['1']);
+            expect(await contract.query('balanceOf', [alice.address, bob.address], {caller: bob})).to.be.deep.equal(['0']);
+            expect(await contract.query('balanceOf', [alice.address, charlie.address], {caller: charlie})).to.be.deep.equal(['10028']);
+            expect(await contract.query('balanceOf', [alice.address, dave.address], {caller: dave})).to.be.deep.equal(['12']);
+
+            expect(await contract.query('topHolders', [alice.address, 4], {caller: alice})).to.be.deep.equal([[
+                charlie.address,
+                dave.address,
+                alice.address,
+                bob.address
+            ]]);
+
+            expect(await contract.query('topHolders', [alice.address, 2], {caller: alice})).to.be.deep.equal([[
+                charlie.address,
+                dave.address
+            ]]);
+
+            expect(await contract.query('topHolders', [alice.address, 5], {caller: alice})).to.be.deep.equal([[
+                charlie.address,
+                dave.address,
+                alice.address,
+                bob.address
+            ]]);
+
+            expect(await contract.query('topHolders', [alice.address, 0], {caller: alice})).to.be.deep.equal([[]]);
+        });
         it('computes top holders for a token without holders', async function() {
             expect(await contract.query('topHolders', [alice.address, 2], {caller: alice})).to.be.deep.equal([[
             ]]);
-        })
+        });
+
+        it('computes top holders for a token with a single holder', async function() {
+            await deployer.sendToken(alice.address, '1000000');
+            await alice.receiveAll();
+
+            await deployer.sendToken(bob.address, '1000000');
+            await bob.receiveAll();
+
+            const charlie = vite.newAccount(config.networks.local.mnemonic, mnemonicCounter++);
+
+            await deployer.sendToken(charlie.address, '1000000');
+            await charlie.receiveAll();
+
+            const dave = vite.newAccount(config.networks.local.mnemonic, mnemonicCounter++);
+            await deployer.sendToken(dave.address, '1000000');
+            await dave.receiveAll();
+
+            // \int_0^27 154x dx = 56133
+            await contract.call('mint', [alice.address, 27], {caller: alice, amount: '56133'});
+
+            await contract.call('transfer', [alice.address, bob.address, 10027], {caller: alice});
+            
+            expect(await contract.query('balanceOf', [alice.address, alice.address], {caller: alice})).to.be.deep.equal(['0']);
+            expect(await contract.query('balanceOf', [alice.address, bob.address], {caller: bob})).to.be.deep.equal(['10027']);
+
+            expect(await contract.query('topHolders', [alice.address, 4], {caller: alice})).to.be.deep.equal([[
+                bob.address
+            ]]);
+
+            expect(await contract.query('topHolders', [alice.address, 2], {caller: alice})).to.be.deep.equal([[
+                bob.address
+            ]]);
+
+            expect(await contract.query('topHolders', [alice.address, 5], {caller: alice})).to.be.deep.equal([[
+                bob.address
+            ]]);
+
+            expect(await contract.query('topHolders', [alice.address, 0], {caller: alice})).to.be.deep.equal([[]]);
+        });
     });
 });
