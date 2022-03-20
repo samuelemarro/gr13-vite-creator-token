@@ -566,6 +566,77 @@ describe('test CreatorToken', function () {
             ]);
         });
 
+        it('swaps a token after someone else mints', async function() {
+            await deployer.sendToken(bob.address, '1000000');
+            await bob.receiveAll();
+
+            expect(await contract.query('balanceOf', [alice.address, alice.address], {caller: alice})).to.be.deep.equal(['10000']);
+
+            // Mint 27 tokens
+            // \int_0^27 154x dx = 56133
+            await contract.call('mint', [alice.address, 27], {caller: bob, amount: '56133'});
+            expect(await contract.balance()).to.be.deep.equal('56133');
+            // 1000000 - 56133 = 943867
+            expect(await bob.balance()).to.be.deep.equal('943867');
+
+            expect(await contract.query('ownerHasCollectedSupply', [alice.address])).to.be.deep.equal(['0']);
+
+            expect(await contract.query('balanceOf', [alice.address, alice.address], {caller: alice})).to.be.deep.equal(['10000']);
+            expect(await contract.query('balanceOf', [alice.address, bob.address], {caller: alice})).to.be.deep.equal(['27']);
+            expect(await contract.query('totalSupply', [alice.address], {caller: alice})).to.be.deep.equal(['10027']);
+            expect(await contract.query('tradableSupply', [alice.address], {caller: alice})).to.be.deep.equal(['27']);
+            // 154 * 27 = 4158
+            expect(await contract.query('currentPrice', [alice.address], {caller: alice})).to.be.deep.equal(['4158']);
+
+            // \int_27^12 154x dx = -45045
+            // \int_0^t 154x dx = 45045 has solution t = 24.187
+            // Since the contract rounds down, the actual value is 24
+            // In other words, the contract will swap 15 Alice-tokens for 24 Bob-tokens
+            await contract.call('swap', [alice.address, bob.address, '15'], {caller: alice});
+            await alice.receiveAll();
+
+            expect(await contract.query('balanceOf', [alice.address, alice.address], {caller: alice})).to.be.deep.equal(['9985']);
+            // 27 Alice-tokens - 15 = 12
+            expect(await contract.query('totalSupply', [alice.address], {caller: alice})).to.be.deep.equal(['10012']);
+            expect(await contract.query('tradableSupply', [alice.address], {caller: alice})).to.be.deep.equal(['12']);
+
+            // Alice now has 24 Bob-tokens
+            expect(await contract.query('balanceOf', [bob.address, alice.address], {caller: alice})).to.be.deep.equal(['24']);
+
+            // Bob's balances didn't change
+            expect(await contract.query('balanceOf', [alice.address, bob.address], {caller: bob})).to.be.deep.equal(['27']);
+            expect(await contract.query('balanceOf', [bob.address, bob.address], {caller: bob})).to.be.deep.equal(['10000']);
+
+            expect(await contract.query('totalSupply', [bob.address], {caller: bob})).to.be.deep.equal(['10024']);
+            expect(await contract.query('tradableSupply', [bob.address], {caller: bob})).to.be.deep.equal(['24']);
+
+            // The new Bob-tokens are worth \int_0^24 154x dx = 44352
+            // In other words, Alice didn't receive enough Bob-tokens to cover the full swap amount
+            // The difference (45045 - 44352 = 693) is refunded to Alice
+            // Contract's balance is now 56133 - 693 = 55440
+            expect(await contract.balance()).to.be.deep.equal('55440');
+            // Alice's balance is now 0 + 693 = 693
+            expect(await alice.balance()).to.be.deep.equal('693');
+
+            const events = await contract.getPastEvents('allEvents', {fromHeight: 0, toHeight: 100});
+            checkEvents(events, [
+                {
+                    '0': alice.address, tokenId: alice.address,
+                    '1': bob.address, owner: bob.address,
+                    '2': '27', amount: '27'
+                }, // Token minted by Bob
+                {
+                    '0': alice.address, tokenId: alice.address,
+                    '1': alice.address, owner: alice.address,
+                    '2': '15', amount: '15'
+                }, // Alice-token burned by Alice
+                {
+                    '0': bob.address, tokenId: bob.address,
+                    '1': alice.address, owner: alice.address,
+                    '2': '24', amount: '24'
+                } // Bob-token minted by Alice
+            ]);
+        });
     });
 
     describe('simulateSwap', function() {
