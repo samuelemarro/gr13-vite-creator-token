@@ -29,3 +29,7 @@ Note: the current Vite node implementation has a nondeterministic response time.
 some tests occasionally failing. In such cases:
 1. Try launching the tests again, either as part of the whole test suite or on their own with `--grep`
 2. Increase the timeout in mocharc.nightly.json
+
+## Version Info
+
+This contract was written with gvite-v2.12.0-vm-nightly-202202090645
