@@ -10,6 +10,7 @@ This contract is my submission to GitCoin's Round 13 Hackathon "Creator Token Pl
 - View the number of holders
 - View holders in descending order of ownership
 - Customizable bonding curve coefficient
+- Getters for UIs
 
 ## Installing
 
